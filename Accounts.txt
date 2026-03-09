@@ -1,0 +1,24 @@
+//run databse update
+
+dotnet ef database update
+
+
+//superadmin acc
+username:superadmin
+password:superadmin123
+
+//admin	acc
+username:admin
+password:admin123
+
+//production manager
+username:productionmanager
+password:productionmanager123
+
+//product manager
+username:prodmanager
+password:prodmanager123
+
+//qamanager	
+username:qamanager
+password:qamanager123
