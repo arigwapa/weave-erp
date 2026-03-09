@@ -1,0 +1,29 @@
+[
+  {
+    "Code": "BAT-2603-01",
+    "Product": "WF-SHRT-2601",
+    "Version": "V3",
+    "Size": "M",
+    "Qty": 450,
+    "Status": "Sent to QA",
+    "HandoffNotes": null
+  },
+  {
+    "Code": "BAT-2603-02",
+    "Product": "WF-SHRT-2601",
+    "Version": "V3",
+    "Size": "L",
+    "Qty": 520,
+    "Status": "Sent to QA",
+    "HandoffNotes": null
+  },
+  {
+    "Code": "BAT-2603-03",
+    "Product": "WF-TRS-2608",
+    "Version": "V4",
+    "Size": "S",
+    "Qty": 380,
+    "Status": "Sent to QA",
+    "HandoffNotes": null
+  }
+]

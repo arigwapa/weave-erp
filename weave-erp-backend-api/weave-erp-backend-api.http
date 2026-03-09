@@ -1,0 +1,6 @@
+@weave_erp_backend_api_HostAddress = http://localhost:5068
+
+GET {{weave_erp_backend_api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
