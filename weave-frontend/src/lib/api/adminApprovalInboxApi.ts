@@ -66,6 +66,8 @@ export interface AdminApprovalQaItem {
 export interface AdminQaSendToInventoryDto {
   BinID?: number;
   BinCode?: string;
+  BranchID?: number;
+  BranchName?: string;
 }
 
 export const adminApprovalInboxApi = {

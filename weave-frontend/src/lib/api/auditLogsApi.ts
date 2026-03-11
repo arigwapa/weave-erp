@@ -12,6 +12,7 @@ export interface AuditUserDto {
 
 export interface AuditLogEntry {
   AuditID: number;
+  Module?: string;
   Action: string;
   OldValue?: string;
   NewValue?: string;

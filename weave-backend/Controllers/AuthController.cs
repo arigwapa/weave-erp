@@ -16,12 +16,18 @@ namespace weave_erp_backend_api.Controllers
         private readonly AppDbContext _context;
         private readonly UserService _userService;
         private readonly IConfiguration _configuration;
+        private readonly AuditLogService _auditLogService;
 
-        public AuthController(AppDbContext context, UserService userService, IConfiguration configuration)
+        public AuthController(
+            AppDbContext context,
+            UserService userService,
+            IConfiguration configuration,
+            AuditLogService auditLogService)
         {
             _context = context;
             _userService = userService;
             _configuration = configuration;
+            _auditLogService = auditLogService;
         }
 
         [HttpPost("login")]
@@ -36,12 +42,19 @@ namespace weave_erp_backend_api.Controllers
 
             var (user, roleName, _) = login.Value;
             var token = GenerateToken(user, roleName);
+            await _auditLogService.WriteAsync(
+                performedBy: user.Fullname?.Trim().Length > 0 ? user.Fullname : user.Username,
+                roleName: roleName,
+                action: "LOGIN",
+                description: $"User login successful for {user.Username}",
+                module: "Auth",
+                ipAgent: $"{HttpContext.Connection.RemoteIpAddress?.ToString() ?? "N/A"} / {Request.Headers.UserAgent}");
 
             return Ok(new
             {
                 AccessToken = token,
                 UserID = user.UserID,
-                BranchID = user.BranchID,
+                BranchID = await ResolveBranchIdForUserAsync(user.UserID),
                 RoleName = roleName,
                 Username = user.Username,
                 user.Fullname,
@@ -61,13 +74,18 @@ namespace weave_erp_backend_api.Controllers
 
             var me = await (from u in _context.Users
                             join r in _context.Roles on u.RoleID equals r.RoleID
-                            join b in _context.Branches on u.BranchID equals b.BranchID
                             where u.UserID == userId
                             select new
                             {
                                 u.UserID,
-                                u.BranchID,
-                                BranchName = b.BranchName,
+                                BranchID = _context.Branches
+                                    .Where(b => b.WarehouseManagerUserID == u.UserID)
+                                    .Select(b => (int?)b.BranchID)
+                                    .FirstOrDefault() ?? 0,
+                                BranchName = _context.Branches
+                                    .Where(b => b.WarehouseManagerUserID == u.UserID)
+                                    .Select(b => b.BranchName)
+                                    .FirstOrDefault(),
                                 RoleName = r.DisplayName,
                                 u.Username,
                                 u.Fullname,
@@ -110,7 +128,7 @@ namespace weave_erp_backend_api.Controllers
                 new(ClaimTypes.NameIdentifier, user.UserID.ToString()),
                 new(ClaimTypes.Name, user.Username),
                 new(ClaimTypes.Role, roleName),
-                new("branchId", user.BranchID.ToString())
+                new("branchId", "0")
             };
 
             var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
@@ -124,6 +142,14 @@ namespace weave_erp_backend_api.Controllers
                 signingCredentials: credentials);
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        private async Task<int> ResolveBranchIdForUserAsync(int userId)
+        {
+            return await _context.Branches
+                .Where(b => b.WarehouseManagerUserID == userId)
+                .Select(b => (int?)b.BranchID)
+                .FirstOrDefaultAsync() ?? 0;
         }
     }
 

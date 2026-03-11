@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Archive, PackageCheck, RotateCcw } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/Card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
@@ -150,7 +151,7 @@ export default function BinLocationPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200/80 bg-gradient-to-r from-white to-slate-50 px-5 py-4 shadow-sm">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Bin Location</h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -162,7 +163,7 @@ export default function BinLocationPage() {
         </PrimaryButton>
       </div>
 
-      <Card className="rounded-2xl">
+      <Card className="rounded-2xl border-slate-200/80 shadow-sm">
         <CardContent className="p-6">
           <TabBar
             tabs={tabs}
@@ -175,13 +176,13 @@ export default function BinLocationPage() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-2xl">
+      <Card className="rounded-2xl border-slate-200/80 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">Bin Location Table</CardTitle>
           <CardDescription>Shows availability and occupied status for each bin.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 p-0">
-          <div className="px-6 pt-6">
+          <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
             <TableToolbar
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -273,26 +274,29 @@ export default function BinLocationPage() {
         </CardContent>
       </Card>
 
-      {isModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
-            <h3 className="text-base font-semibold text-slate-900">{editing ? "Edit Bin Location" : "Create Bin Location"}</h3>
-            <div className="mt-4 grid gap-3">
-              <div className="space-y-1">
-                <Label>Bin Location</Label>
-                <Input value={form.binCode} onChange={(e) => setForm((p) => ({ ...p, binCode: e.target.value }))} />
+      {isModalOpen
+        ? createPortal(
+            <div className="fixed inset-0 z-[120] flex min-h-screen items-center justify-center bg-slate-900/45 p-4 backdrop-blur-[1px]">
+              <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+                <h3 className="text-base font-semibold text-slate-900">{editing ? "Edit Bin Location" : "Create Bin Location"}</h3>
+                <div className="mt-4 grid gap-3">
+                  <div className="space-y-1">
+                    <Label>Bin Location</Label>
+                    <Input value={form.binCode} onChange={(e) => setForm((p) => ({ ...p, binCode: e.target.value }))} />
+                  </div>
+                </div>
+                {formError ? <p className="mt-3 text-xs text-rose-600">{formError}</p> : null}
+                <div className="mt-4 flex justify-end gap-2">
+                  <SecondaryButton onClick={() => setIsModalOpen(false)}>Cancel</SecondaryButton>
+                  <PrimaryButton isLoading={isSaving} className="!w-auto !rounded-full !px-4 !py-2 !text-xs" onClick={() => void save()}>
+                    Submit
+                  </PrimaryButton>
+                </div>
               </div>
-            </div>
-            {formError ? <p className="mt-3 text-xs text-rose-600">{formError}</p> : null}
-            <div className="mt-4 flex justify-end gap-2">
-              <SecondaryButton onClick={() => setIsModalOpen(false)}>Cancel</SecondaryButton>
-              <PrimaryButton isLoading={isSaving} className="!w-auto !rounded-full !px-4 !py-2 !text-xs" onClick={() => void save()}>
-                Submit
-              </PrimaryButton>
-            </div>
-          </div>
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

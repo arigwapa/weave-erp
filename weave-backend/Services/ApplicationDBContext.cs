@@ -30,6 +30,8 @@ namespace weave_erp_backend_api.Services
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<RunSchedule> RunSchedules => Set<RunSchedule>();
         public DbSet<ProductionBatchBoardItem> ProductionBatchBoardItems => Set<ProductionBatchBoardItem>();
+        public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+        public DbSet<AuditViewer> AuditViewerRows => Set<AuditViewer>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -45,6 +47,8 @@ namespace weave_erp_backend_api.Services
             modelBuilder.Entity<BinLocation>().HasIndex(x => x.BinLocationName).IsUnique();
             modelBuilder.Entity<RunSchedule>().HasIndex(x => x.ScheduleKey).IsUnique();
             modelBuilder.Entity<ProductionBatchBoardItem>().HasIndex(x => x.Code).IsUnique();
+            modelBuilder.Entity<AuditLog>().HasIndex(x => x.PerformedAt);
+            modelBuilder.Entity<AuditViewer>().HasIndex(x => x.DatePerformed);
             modelBuilder.Entity<InspectionChecklistTemplate>().HasIndex(x => x.ChecklistCode).IsUnique();
             modelBuilder.Entity<ProductionVersion>().HasIndex(x => new { x.ProductID, x.VersionNumber }).IsUnique();
             modelBuilder.Entity<ProductionVersion>().HasIndex(x => new { x.OrderID, x.VersionNumber }).IsUnique();
@@ -83,6 +87,8 @@ namespace weave_erp_backend_api.Services
             modelBuilder.Entity<Notification>().ToTable("Notification");
             modelBuilder.Entity<RunSchedule>().ToTable("RunSchedule");
             modelBuilder.Entity<ProductionBatchBoardItem>().ToTable("ProductionBatchBoardItem");
+            modelBuilder.Entity<AuditLog>().ToTable("AuditLogs");
+            modelBuilder.Entity<AuditViewer>().ToTable("AuditViewer");
         }
 
         private static void ConfigureDecimalPrecision(ModelBuilder modelBuilder)
@@ -110,7 +116,6 @@ namespace weave_erp_backend_api.Services
         private static void ConfigureForeignKeys(ModelBuilder modelBuilder)
         {
             // Organization and access
-            modelBuilder.Entity<User>().HasOne<Branch>().WithMany().HasForeignKey(x => x.BranchID);
             modelBuilder.Entity<User>().HasOne<Role>().WithMany().HasForeignKey(x => x.RoleID);
             modelBuilder.Entity<Branch>().HasOne<User>().WithMany().HasForeignKey(x => x.WarehouseManagerUserID);
 

@@ -7,7 +7,6 @@ namespace weave_erp_backend_api.Models
     {
         [Key]
         public int UserID { get; set; }
-        public int BranchID { get; set; }
         public int RoleID { get; set; }
         [Required, StringLength(100)]
         public string Username { get; set; } = string.Empty;

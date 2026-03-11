@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarClock, Eye, ShieldCheck, UserCircle2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/Card";
 import { TableToolbar } from "../../components/ui/TableToolbar";
 import Pagination from "../../components/ui/Pagination";
-import SecondaryButton from "../../components/ui/SecondaryButton";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import DetailsModal from "../../components/ui/DetailsModal";
 import {
   Select,
   SelectContent,
@@ -27,8 +24,7 @@ type AuditViewerEntry = {
   action: string;
   module: string;
   reason: string;
-  ip: string;
-  userAgent: string;
+  ipAgent: string;
 };
 
 function canViewSensitiveAudit(role: string | null): boolean {
@@ -47,10 +43,9 @@ function toViewerEntry(item: AuditLogEntry): AuditViewerEntry {
     actor: actorLabel,
     role: item.ActorUser.RoleName,
     action: item.Action,
-    module: "Workflow",
+    module: item.Module || "Workflow",
     reason: item.NewValue || item.OldValue || "No reason provided.",
-    ip: item.IpAddress ?? "N/A",
-    userAgent: "N/A",
+    ipAgent: item.IpAddress ?? "N/A",
   };
 }
 
@@ -65,7 +60,6 @@ export default function AuditViewerPage() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [backendRoleOptions, setBackendRoleOptions] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedEntry, setSelectedEntry] = useState<AuditViewerEntry | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -123,8 +117,11 @@ export default function AuditViewerPage() {
   }, []);
 
   const visibleEntries = useMemo(() => {
-    if (isPrivileged) return entries;
-    return entries.filter((entry) => entry.role === role);
+    const withoutSuperAdmin = entries.filter(
+      (entry) => entry.role.trim().toLowerCase() !== "superadmin",
+    );
+    if (isPrivileged) return withoutSuperAdmin;
+    return withoutSuperAdmin.filter((entry) => entry.role === role);
   }, [entries, isPrivileged, role]);
 
   const roleOptions = useMemo(() => {
@@ -219,17 +216,7 @@ export default function AuditViewerPage() {
               setIsFilterOpen={setIsFilterOpen}
               filterLabel="Role"
               placeholder="Search event ID, actor, action, reason..."
-              inlineControls={
-                <SecondaryButton
-                  onClick={() => {
-                    setSearchQuery("");
-                    setRoleFilter("all");
-                    setCurrentPage(1);
-                  }}
-                >
-                  Reset
-                </SecondaryButton>
-              }
+              inlineControls={undefined}
             >
               <div className="p-3 space-y-2">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Actor Role</p>
@@ -275,7 +262,6 @@ export default function AuditViewerPage() {
                     <TableHead>Action</TableHead>
                     <TableHead>Reason</TableHead>
                     <TableHead>IP / Agent</TableHead>
-                    <TableHead className="pl-6 text-left">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -290,12 +276,7 @@ export default function AuditViewerPage() {
                       <TableCell className="max-w-[320px] truncate" title={entry.reason}>
                         {entry.reason}
                       </TableCell>
-                      <TableCell>{isPrivileged ? `${entry.ip} • ${entry.userAgent}` : "Restricted"}</TableCell>
-                      <TableCell className="pl-6">
-                        <SecondaryButton icon={Eye} onClick={() => setSelectedEntry(entry)}>
-                          Details
-                        </SecondaryButton>
-                      </TableCell>
+                      <TableCell>{isPrivileged ? entry.ipAgent : "Restricted"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -313,39 +294,6 @@ export default function AuditViewerPage() {
           )}
         </CardContent>
       </Card>
-
-      <DetailsModal
-        isOpen={selectedEntry !== null}
-        onClose={() => setSelectedEntry(null)}
-        title="Audit Event Details"
-        itemId={selectedEntry?.id ?? "-"}
-        headerIcon={
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700">
-            <ShieldCheck size={16} />
-          </div>
-        }
-        gridFields={
-          selectedEntry
-            ? [
-                { label: "Actor", value: selectedEntry.actor, icon: UserCircle2 },
-                { label: "Role", value: selectedEntry.role, icon: ShieldCheck },
-                { label: "Action", value: selectedEntry.action, icon: ShieldCheck },
-                { label: "Module", value: selectedEntry.module, icon: ShieldCheck },
-                { label: "Timestamp", value: selectedEntry.at, icon: CalendarClock },
-                {
-                  label: "IP / Agent",
-                  value: isPrivileged ? `${selectedEntry.ip} • ${selectedEntry.userAgent}` : "Restricted",
-                  icon: ShieldCheck,
-                },
-              ]
-            : []
-        }
-      >
-        <div className="rounded-xl border border-slate-200 bg-white p-3">
-          <p className="text-xs font-semibold uppercase text-slate-500">Reason</p>
-          <p className="mt-1 text-sm text-slate-700">{selectedEntry?.reason ?? "-"}</p>
-        </div>
-      </DetailsModal>
     </div>
   );
 }

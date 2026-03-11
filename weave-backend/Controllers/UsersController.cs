@@ -26,15 +26,25 @@ namespace weave_erp_backend_api.Controllers
         {
             var items = await (from u in _context.Users
                                join r in _context.Roles on u.RoleID equals r.RoleID
-                               join b in _context.Branches on u.BranchID equals b.BranchID
                                where u.IsActive
                                select new
                                {
                                    u.UserID,
-                                   u.BranchID,
-                                   BranchName = b.BranchName,
-                                   WarehouseID = (int?)b.BranchID,
-                                   WarehouseName = b.BranchName,
+                                   BranchName = _context.Branches
+                                       .Where(b => b.WarehouseManagerUserID == u.UserID)
+                                       .OrderBy(b => b.BranchID)
+                                       .Select(b => b.BranchName)
+                                       .FirstOrDefault(),
+                                   WarehouseID = _context.Branches
+                                       .Where(b => b.WarehouseManagerUserID == u.UserID)
+                                       .OrderBy(b => b.BranchID)
+                                       .Select(b => (int?)b.BranchID)
+                                       .FirstOrDefault(),
+                                   WarehouseName = _context.Branches
+                                       .Where(b => b.WarehouseManagerUserID == u.UserID)
+                                       .OrderBy(b => b.BranchID)
+                                       .Select(b => b.BranchName)
+                                       .FirstOrDefault(),
                                    u.RoleID,
                                    RoleName = r.DisplayName,
                                    u.Username,
@@ -65,15 +75,25 @@ namespace weave_erp_backend_api.Controllers
         {
             var items = await (from u in _context.Users
                                join r in _context.Roles on u.RoleID equals r.RoleID
-                               join b in _context.Branches on u.BranchID equals b.BranchID
                                where !u.IsActive
                                select new
                                {
                                    u.UserID,
-                                   u.BranchID,
-                                   BranchName = b.BranchName,
-                                   WarehouseID = (int?)b.BranchID,
-                                   WarehouseName = b.BranchName,
+                                   BranchName = _context.Branches
+                                       .Where(b => b.WarehouseManagerUserID == u.UserID)
+                                       .OrderBy(b => b.BranchID)
+                                       .Select(b => b.BranchName)
+                                       .FirstOrDefault(),
+                                   WarehouseID = _context.Branches
+                                       .Where(b => b.WarehouseManagerUserID == u.UserID)
+                                       .OrderBy(b => b.BranchID)
+                                       .Select(b => (int?)b.BranchID)
+                                       .FirstOrDefault(),
+                                   WarehouseName = _context.Branches
+                                       .Where(b => b.WarehouseManagerUserID == u.UserID)
+                                       .OrderBy(b => b.BranchID)
+                                       .Select(b => b.BranchName)
+                                       .FirstOrDefault(),
                                    u.RoleID,
                                    RoleName = r.DisplayName,
                                    u.Username,
@@ -137,15 +157,6 @@ namespace weave_erp_backend_api.Controllers
                 return ValidationProblem(ModelState);
             }
 
-            var branchId = isWarehouseManager
-                ? resolvedWarehouse!.BranchID
-                : await ResolveBranchIdAsync(request.BranchID);
-            if (branchId <= 0)
-            {
-                ModelState.AddModelError(nameof(request.BranchID), "Invalid branch.");
-                return ValidationProblem(ModelState);
-            }
-
             var fullName = request.Fullname.Trim();
             var email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
             var contactNumberInput = request.ContactNumber ?? request.Mobile;
@@ -153,7 +164,6 @@ namespace weave_erp_backend_api.Controllers
             var passwordHash = HashPassword(request.Password);
             var userDto = new UserDto
             {
-                BranchID = branchId,
                 RoleID = roleId,
                 Username = username,
                 Fullname = fullName,
@@ -169,7 +179,6 @@ namespace weave_erp_backend_api.Controllers
             var actorUserId = GetActorUserId() ?? 1;
             var user = new User
             {
-                BranchID = userDto.BranchID,
                 RoleID = userDto.RoleID,
                 Username = userDto.Username,
                 Fullname = userDto.Fullname,
@@ -195,7 +204,7 @@ namespace weave_erp_backend_api.Controllers
                     branch.UpdatedAt = DateTime.UtcNow;
                 }
 
-                var assignedBranch = await _context.Branches.FirstOrDefaultAsync(x => x.BranchID == resolvedWarehouse.BranchID);
+                var assignedBranch = await _context.Branches.FirstOrDefaultAsync(x => x.BranchID == resolvedWarehouse.WarehouseID);
                 if (assignedBranch != null)
                 {
                     assignedBranch.WarehouseManagerUserID = user.UserID;
@@ -207,13 +216,9 @@ namespace weave_erp_backend_api.Controllers
             return CreatedAtAction(nameof(GetById), new { id = user.UserID }, new
             {
                 user.UserID,
-                user.BranchID,
-                BranchName = _context.Branches.Where(x => x.BranchID == user.BranchID).Select(x => x.BranchName).FirstOrDefault(),
                 WarehouseID = resolvedWarehouse?.WarehouseID,
-                WarehouseName = resolvedWarehouse?.WarehouseName ?? _context.Branches
-                    .Where(x => x.BranchID == user.BranchID)
-                    .Select(x => x.BranchName)
-                    .FirstOrDefault(),
+                WarehouseName = resolvedWarehouse?.WarehouseName,
+                BranchName = resolvedWarehouse?.WarehouseName,
                 RoleName = normalizedRole,
                 user.Username,
                 user.Fullname,
@@ -302,17 +307,6 @@ namespace weave_erp_backend_api.Controllers
                     ModelState.AddModelError(nameof(request.WarehouseName), "Warehouse Manager role requires a valid warehouse assignment.");
                     return ValidationProblem(ModelState);
                 }
-                user.BranchID = resolvedWarehouseForUpdate.BranchID;
-            }
-            else if (request.BranchID.HasValue)
-            {
-                var branchId = await ResolveBranchIdAsync(request.BranchID);
-                if (branchId <= 0)
-                {
-                    ModelState.AddModelError(nameof(request.BranchID), "Invalid branch.");
-                    return ValidationProblem(ModelState);
-                }
-                user.BranchID = branchId;
             }
 
             if (!string.IsNullOrWhiteSpace(request.Password))
@@ -327,7 +321,6 @@ namespace weave_erp_backend_api.Controllers
 
             var updateDto = new UserDto
             {
-                BranchID = user.BranchID,
                 RoleID = user.RoleID,
                 Username = user.Username,
                 Fullname = user.Fullname,
@@ -355,7 +348,7 @@ namespace weave_erp_backend_api.Controllers
                     branch.UpdatedAt = DateTime.UtcNow;
                 }
 
-                var assignedBranch = await _context.Branches.FirstOrDefaultAsync(x => x.BranchID == resolvedWarehouseForUpdate.BranchID);
+                var assignedBranch = await _context.Branches.FirstOrDefaultAsync(x => x.BranchID == resolvedWarehouseForUpdate.WarehouseID);
                 if (assignedBranch != null)
                 {
                     assignedBranch.WarehouseManagerUserID = user.UserID;
@@ -382,11 +375,11 @@ namespace weave_erp_backend_api.Controllers
             return Ok(new
             {
                 user.UserID,
-                user.BranchID,
-                BranchName = _context.Branches.Where(x => x.BranchID == user.BranchID).Select(x => x.BranchName).FirstOrDefault(),
                 WarehouseID = resolvedWarehouseForUpdate?.WarehouseID,
                 WarehouseName = resolvedWarehouseForUpdate?.WarehouseName
-                    ?? _context.Branches.Where(x => x.BranchID == user.BranchID).Select(x => x.BranchName).FirstOrDefault(),
+                    ?? _context.Branches.Where(x => x.WarehouseManagerUserID == user.UserID).Select(x => x.BranchName).FirstOrDefault(),
+                BranchName = resolvedWarehouseForUpdate?.WarehouseName
+                    ?? _context.Branches.Where(x => x.WarehouseManagerUserID == user.UserID).Select(x => x.BranchName).FirstOrDefault(),
                 user.Username,
                 user.Fullname,
                 user.Email,
@@ -471,23 +464,6 @@ namespace weave_erp_backend_api.Controllers
             return role.RoleID;
         }
 
-        private async Task<int> ResolveBranchIdAsync(int? requestedBranchId)
-        {
-            if (requestedBranchId.HasValue && requestedBranchId.Value > 0)
-            {
-                var exists = await _context.Branches.AnyAsync(x => x.BranchID == requestedBranchId.Value);
-                if (exists)
-                {
-                    return requestedBranchId.Value;
-                }
-            }
-
-            return await _context.Branches
-                .OrderBy(x => x.BranchID)
-                .Select(x => x.BranchID)
-                .FirstOrDefaultAsync();
-        }
-
         private static string NormalizeRoleName(string? roleName)
         {
             var clean = (roleName ?? string.Empty).Trim();
@@ -520,8 +496,7 @@ namespace weave_erp_backend_api.Controllers
                     .Select(x => new WarehouseAssignment
                     {
                         WarehouseID = x.BranchID,
-                        WarehouseName = x.BranchName,
-                        BranchID = x.BranchID
+                        WarehouseName = x.BranchName
                     })
                     .FirstOrDefaultAsync();
                 if (byId != null)
@@ -540,8 +515,7 @@ namespace weave_erp_backend_api.Controllers
                     .Select(x => new WarehouseAssignment
                     {
                         WarehouseID = x.BranchID,
-                        WarehouseName = x.BranchName,
-                        BranchID = x.BranchID
+                        WarehouseName = x.BranchName
                     })
                     .FirstOrDefaultAsync();
             }
@@ -620,7 +594,6 @@ namespace weave_erp_backend_api.Controllers
 
     public class CreateUserRequest
     {
-        public int? BranchID { get; set; }
         public int? WarehouseID { get; set; }
         [StringLength(80, ErrorMessage = "Warehouse name must be at most 80 characters.")]
         public string? WarehouseName { get; set; }
@@ -647,7 +620,6 @@ namespace weave_erp_backend_api.Controllers
 
     public class UpdateUserRequest
     {
-        public int? BranchID { get; set; }
         public int? WarehouseID { get; set; }
         [StringLength(80, ErrorMessage = "Warehouse name must be at most 80 characters.")]
         public string? WarehouseName { get; set; }
@@ -673,6 +645,5 @@ namespace weave_erp_backend_api.Controllers
     {
         public int WarehouseID { get; set; }
         public string WarehouseName { get; set; } = string.Empty;
-        public int BranchID { get; set; }
     }
 }

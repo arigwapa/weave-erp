@@ -12,8 +12,14 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import SecondaryButton from "../../components/ui/SecondaryButton";
-import { Input } from "../../components/ui/input";
 import { productionInventoryApi, type WarehouseInventoryRow } from "../../lib/api/productionInventoryApi";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
 
 const DEFAULT_RELEASE_TAG = "Official Version";
 
@@ -45,6 +51,7 @@ export default function InventoryAllocationPage() {
     return records.filter((record) => {
       const matchesSearch =
         String(record.VersionID).includes(q) ||
+        String(record.BranchName || "").toLowerCase().includes(q) ||
         String(record.BinLocation || "").toLowerCase().includes(q) ||
         String(record.ProductID ?? "").includes(q) ||
                 (record.CollectionName ?? "").toLowerCase().includes(q) ||
@@ -62,23 +69,23 @@ export default function InventoryAllocationPage() {
   const pagedRecords = filteredRecords.slice(startIndex, endIndex);
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="space-y-6 overflow-x-hidden">
+      <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-white to-slate-50 px-5 py-4 shadow-sm">
         <h1 className="text-2xl font-semibold text-slate-900">Warehouse Inventory</h1>
         <p className="mt-1 text-sm text-slate-500">
           Track production inventory with version, bin assignment, quantity, release tag, and source metadata.
         </p>
       </div>
 
-      <Card className="rounded-2xl">
+      <Card className="rounded-2xl border-slate-200/80 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">Warehouse Inventory Table</CardTitle>
           <CardDescription>
-            Columns: VersionID, Bin Location (input), CollectionName, QuantityOnHand, Status, ReleaseTag, SourceInspectionID, BatchBoardID, ProductID, ReceivedAt.
+            Columns: VersionID, Branch, Bin Location, CollectionName, QuantityOnHand, Status, ReleaseTag, SourceInspectionID, BatchBoardID, ProductID, ReceivedAt.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 p-0">
-          <div className="px-6 pt-6">
+          <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
             <TableToolbar
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -101,30 +108,36 @@ export default function InventoryAllocationPage() {
             >
               <div className="p-3 space-y-2">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Status</p>
-                <select
-                  className="h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-xs"
+                <Select
                   value={statusFilter}
-                  onChange={(event) => {
-                    setStatusFilter(event.target.value);
+                  onValueChange={(value) => {
+                    setStatusFilter(value);
                     setCurrentPage(1);
                   }}
                 >
-                  <option value="all">All</option>
-                  <option value="available">Available</option>
-                  <option value="low stock">Low Stock</option>
-                  <option value="in production">In Production</option>
-                  <option value="replenishment requested">Replenishment Requested</option>
-                  <option value="archived">Archived</option>
-                </select>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="All status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="available">Available</SelectItem>
+                    <SelectItem value="low stock">Low Stock</SelectItem>
+                    <SelectItem value="in production">In Production</SelectItem>
+                    <SelectItem value="replenishment requested">Replenishment Requested</SelectItem>
+                    <SelectItem value="archived">Archived</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </TableToolbar>
           </div>
 
-          <Table>
+          <div className="w-full overflow-x-auto">
+          <Table className="min-w-[1120px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="px-6">VersionID</TableHead>
-                <TableHead>Bin Location (input)</TableHead>
+                <TableHead>Branch</TableHead>
+                <TableHead>Bin Location</TableHead>
                 <TableHead>CollectionName</TableHead>
                 <TableHead>QuantityOnHand</TableHead>
                 <TableHead>Status</TableHead>
@@ -138,7 +151,7 @@ export default function InventoryAllocationPage() {
             <TableBody>
               {pagedRecords.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="px-6 py-10 text-center text-sm text-slate-500">
+                  <TableCell colSpan={11} className="px-6 py-10 text-center text-sm text-slate-500">
                     {isLoading ? "Loading warehouse inventory..." : "No inventory records found."}
                   </TableCell>
                 </TableRow>
@@ -146,13 +159,8 @@ export default function InventoryAllocationPage() {
                 pagedRecords.map((record) => (
                   <TableRow key={record.ProdInvID}>
                     <TableCell className="px-6">{record.VersionID}</TableCell>
-                    <TableCell>
-                      <Input
-                        value={record.BinLocation ?? String(record.BinID)}
-                        readOnly
-                        className="h-8 w-24"
-                      />
-                    </TableCell>
+                    <TableCell>{record.BranchName || "-"}</TableCell>
+                    <TableCell>{record.BinLocation ?? String(record.BinID)}</TableCell>
                     <TableCell>{record.CollectionName || "-"}</TableCell>
                     <TableCell>{record.QuantityOnHand}</TableCell>
                     <TableCell>{record.Status}</TableCell>
@@ -166,6 +174,7 @@ export default function InventoryAllocationPage() {
               )}
             </TableBody>
           </Table>
+          </div>
 
           <Pagination
             currentPage={safePage}

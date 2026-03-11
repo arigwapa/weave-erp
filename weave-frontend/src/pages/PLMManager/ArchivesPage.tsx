@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArchiveRestore, FolderKanban, Package2 } from "lucide-react";
+import { ArchiveRestore, CalendarClock, Eye, FolderKanban, Package2, Shapes, Tag } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/Card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import SecondaryButton from "../../components/ui/SecondaryButton";
@@ -7,6 +7,7 @@ import { Input } from "../../components/ui/input";
 import { collectionsApi, type Collection } from "../../lib/api/collectionsApi";
 import { productsApi, type Product } from "../../lib/api/productsApi";
 import TabBar from "../../components/ui/TabBar";
+import DetailsModal from "../../components/ui/DetailsModal";
 
 type ArchiveTab = "products" | "collections";
 
@@ -16,6 +17,8 @@ export default function PLMArchivesPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
 
   const loadArchived = async () => {
     setIsLoading(true);
@@ -81,14 +84,14 @@ export default function PLMArchivesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-white to-slate-50 px-5 py-4 shadow-sm">
         <h1 className="text-2xl font-semibold text-slate-900">Archives</h1>
         <p className="mt-1 text-sm text-slate-500">
           Archived records are soft-deleted and can be restored anytime.
         </p>
       </div>
 
-      <Card className="rounded-2xl">
+      <Card className="rounded-2xl border-slate-200/80 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">PLM Archive Center</CardTitle>
           <CardDescription>View and restore archived products and collections.</CardDescription>
@@ -137,6 +140,14 @@ export default function PLMArchivesPage() {
                       <TableCell>{item.Season}</TableCell>
                       <TableCell className="text-left">
                         <SecondaryButton
+                          icon={Eye}
+                          className="!mr-2 !rounded-lg !px-3 !py-2"
+                          ariaLabel={`View ${item.Name} details`}
+                          onClick={() => setSelectedProduct(item)}
+                        >
+                          <span>Details</span>
+                        </SecondaryButton>
+                        <SecondaryButton
                           icon={ArchiveRestore}
                           className="!rounded-lg !px-3 !py-2"
                           ariaLabel={`Restore ${item.Name}`}
@@ -175,6 +186,14 @@ export default function PLMArchivesPage() {
                       <TableCell>{item.Season}</TableCell>
                       <TableCell className="text-left">
                         <SecondaryButton
+                          icon={Eye}
+                          className="!mr-2 !rounded-lg !px-3 !py-2"
+                          ariaLabel={`View ${item.CollectionName} details`}
+                          onClick={() => setSelectedCollection(item)}
+                        >
+                          <span>Details</span>
+                        </SecondaryButton>
+                        <SecondaryButton
                           icon={ArchiveRestore}
                           className="!rounded-lg !px-3 !py-2"
                           ariaLabel={`Restore ${item.CollectionName}`}
@@ -191,6 +210,92 @@ export default function PLMArchivesPage() {
           )}
         </CardContent>
       </Card>
+
+      <DetailsModal
+        isOpen={selectedProduct !== null}
+        onClose={() => setSelectedProduct(null)}
+        title="Archived Product Details"
+        itemId={String(selectedProduct?.ProductID ?? "-")}
+        headerIcon={
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+            <Package2 size={16} />
+          </div>
+        }
+        gridFields={
+          selectedProduct
+            ? [
+                { label: "SKU", value: selectedProduct.SKU || "-", icon: Tag },
+                { label: "Name", value: selectedProduct.Name || "-", icon: Shapes },
+                { label: "Category", value: selectedProduct.Category || "-", icon: Shapes },
+                { label: "Season", value: selectedProduct.Season || "-", icon: CalendarClock },
+              ]
+            : []
+        }
+        footerActions={
+          selectedProduct ? (
+            <SecondaryButton
+              icon={ArchiveRestore}
+              className="!rounded-xl !px-4 !py-2.5 !text-xs"
+              onClick={async () => {
+                await restoreProduct(selectedProduct.ProductID);
+                setSelectedProduct(null);
+              }}
+            >
+              Restore Product
+            </SecondaryButton>
+          ) : null
+        }
+      >
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Archive Note</p>
+          <p className="text-sm text-slate-700">
+            This product is currently archived and hidden from active PLM workflows.
+          </p>
+        </div>
+      </DetailsModal>
+
+      <DetailsModal
+        isOpen={selectedCollection !== null}
+        onClose={() => setSelectedCollection(null)}
+        title="Archived Collection Details"
+        itemId={String(selectedCollection?.CollectionID ?? "-")}
+        headerIcon={
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700">
+            <FolderKanban size={16} />
+          </div>
+        }
+        gridFields={
+          selectedCollection
+            ? [
+                { label: "Code", value: selectedCollection.CollectionCode || "-", icon: Tag },
+                { label: "Name", value: selectedCollection.CollectionName || "-", icon: FolderKanban },
+                { label: "Season", value: selectedCollection.Season || "-", icon: CalendarClock },
+                { label: "Status", value: selectedCollection.Status || "Archived", icon: Shapes },
+              ]
+            : []
+        }
+        footerActions={
+          selectedCollection ? (
+            <SecondaryButton
+              icon={ArchiveRestore}
+              className="!rounded-xl !px-4 !py-2.5 !text-xs"
+              onClick={async () => {
+                await restoreCollection(selectedCollection.CollectionID);
+                setSelectedCollection(null);
+              }}
+            >
+              Restore Collection
+            </SecondaryButton>
+          ) : null
+        }
+      >
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Archive Note</p>
+          <p className="text-sm text-slate-700">
+            This collection is archived and excluded from active planning and submission flows.
+          </p>
+        </div>
+      </DetailsModal>
     </div>
   );
 }

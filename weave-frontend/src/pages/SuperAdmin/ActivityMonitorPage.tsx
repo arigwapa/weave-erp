@@ -55,7 +55,9 @@ export default function ActivityMonitorPage() {
     () =>
       logs.map((entry) => ({
         id: entry.AuditID,
-        performedBy: entry.ActorUser?.Fullname || entry.ActorUser?.Username || "-",
+        performedBy: [entry.ActorUser?.Fullname || entry.ActorUser?.Username || "-", entry.ActorUser?.RoleName]
+          .filter(Boolean)
+          .join(" • "),
         action: entry.Action || "-",
         description: toDescription(entry),
         datePerformed: formatDateTime(entry.PerformedAt),

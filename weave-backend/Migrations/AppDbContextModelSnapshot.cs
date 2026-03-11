@@ -22,6 +22,90 @@ namespace weave_erp_backend_api.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("weave_erp_backend_api.Models.AuditLog", b =>
+                {
+                    b.Property<int>("AuditID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AuditID"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("PerformedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PerformedBy")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("RoleName")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("AuditID");
+
+                    b.HasIndex("PerformedAt");
+
+                    b.ToTable("AuditLogs", (string)null);
+                });
+
+            modelBuilder.Entity("weave_erp_backend_api.Models.AuditViewer", b =>
+                {
+                    b.Property<int>("EventID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("EventID"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<DateTime>("DatePerformed")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("IpAgent")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Module")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("EventID");
+
+                    b.HasIndex("DatePerformed");
+
+                    b.ToTable("AuditViewer", (string)null);
+                });
+
             modelBuilder.Entity("weave_erp_backend_api.Models.BillOfMaterials", b =>
                 {
                     b.Property<int>("BOMID")
@@ -1120,6 +1204,10 @@ namespace weave_erp_backend_api.Migrations
                     b.Property<int>("BinID")
                         .HasColumnType("int");
 
+                    b.Property<string>("BranchName")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
                     b.Property<string>("CollectionName")
                         .IsRequired()
                         .HasMaxLength(180)
@@ -1426,9 +1514,6 @@ namespace weave_erp_backend_api.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserID"));
 
-                    b.Property<int>("BranchID")
-                        .HasColumnType("int");
-
                     b.Property<string>("ContactNumber")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
@@ -1471,8 +1556,6 @@ namespace weave_erp_backend_api.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.HasKey("UserID");
-
-                    b.HasIndex("BranchID");
 
                     b.HasIndex("CreatedByUserID");
 
@@ -1834,12 +1917,6 @@ namespace weave_erp_backend_api.Migrations
 
             modelBuilder.Entity("weave_erp_backend_api.Models.User", b =>
                 {
-                    b.HasOne("weave_erp_backend_api.Models.Branch", null)
-                        .WithMany()
-                        .HasForeignKey("BranchID")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
                     b.HasOne("weave_erp_backend_api.Models.User", null)
                         .WithMany()
                         .HasForeignKey("CreatedByUserID")

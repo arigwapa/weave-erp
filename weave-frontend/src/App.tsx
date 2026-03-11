@@ -27,6 +27,7 @@ import AdminReportsPage from "./pages/Admin/ReportsPage";
 import AdminNotificationCenterPage from "./pages/Admin/NotificationCenterPage";
 import AdminAuditViewerPage from "./pages/Admin/AuditViewerPage";
 import AdminProfilePage from "./pages/Admin/ProfilePage";
+import AdminHistoryPage from "./pages/Admin/HistoryPage";
 import BranchDashboardPage from "./pages/BranchManager/DashboardPage";
 import BranchInventoryPage from "./pages/BranchManager/InventoryPage";
 import BranchRestockRequestPage from "./pages/BranchManager/RestockRequestPage";
@@ -55,6 +56,7 @@ import QADashboardPage from "./pages/QualityManager/DashboardPage";
 import QAInspectionFormPage from "./pages/QualityManager/InspectionFormPage";
 import QAInspectionHistoryPage from "./pages/QualityManager/InspectionHistoryPage";
 import QAAnalyticsPage from "./pages/QualityManager/QAAnalyticsPage";
+import QAProfilePage from "./pages/QualityManager/ProfilePage";
 import MainLayout from "./layout/MainLayout";
 import AdminLayout from "./layout/AdminLayout";
 import PLMLayout from "./layout/PLMLayout";
@@ -115,7 +117,7 @@ function Protected({
       (allowedRole) => compact(allowedRole) === currentRoleKey,
     );
     if (!isDirectlyAllowed) {
-      return <Navigate to="/dashboard" replace />;
+      return <NotFoundPage />;
     }
   }
 
@@ -300,6 +302,16 @@ function App() {
             <Protected roles={[WorkflowRoles.Admin, "BranchAdmin"]}>
               <AdminLayout>
                 <AdminReportsPage />
+              </AdminLayout>
+            </Protected>
+          }
+        />
+        <Route
+          path="/admin/history"
+          element={
+            <Protected roles={[WorkflowRoles.Admin, "BranchAdmin"]}>
+              <AdminLayout>
+                <AdminHistoryPage />
               </AdminLayout>
             </Protected>
           }
@@ -608,6 +620,24 @@ function App() {
               <QALayout>
                 <QAAnalyticsPage />
               </QALayout>
+            </Protected>
+          }
+        />
+        <Route
+          path="/qa/profile"
+          element={
+            <Protected roles={[WorkflowRoles.QAManager, "PQA"]}>
+              <QALayout>
+                <QAProfilePage />
+              </QALayout>
+            </Protected>
+          }
+        />
+        <Route
+          path="/qa/profile-settings"
+          element={
+            <Protected roles={[WorkflowRoles.QAManager, "PQA"]}>
+              <Navigate to="/qa/profile" replace />
             </Protected>
           }
         />

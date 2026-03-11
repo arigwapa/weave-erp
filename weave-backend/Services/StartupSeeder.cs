@@ -18,6 +18,13 @@ namespace weave_erp_backend_api.Services
             new("QAManager", "qamanager", "qamanager123", "QA Manager", "qamanager@local"),
         };
 
+        private static readonly (string Name, string Address, int Capacity)[] FixedBranches =
+        {
+            ("Main Branch", "Main distribution hub", 5000),
+            ("North Branch", "North distribution hub", 3000),
+            ("South Branch", "South distribution hub", 3000),
+        };
+
         public static async Task SeedAsync(WebApplication app)
         {
             using var scope = app.Services.CreateScope();
@@ -39,8 +46,8 @@ namespace weave_erp_backend_api.Services
                     .OrderBy(x => x.UserID)
                     .Select(x => x.UserID)
                     .FirstAsync();
-                var branchId = await EnsureBranchAsync(context, actorUserId);
-                await EnsureRequiredRolesAndUsersAsync(context, branchId, actorUserId);
+                await EnsureFixedBranchesAsync(context, actorUserId);
+                await EnsureRequiredRolesAndUsersAsync(context, actorUserId);
             }
             catch (Exception ex)
             {
@@ -48,31 +55,35 @@ namespace weave_erp_backend_api.Services
             }
         }
 
-        private static async Task<int> EnsureBranchAsync(AppDbContext context, int actorUserId)
+        private static async Task EnsureFixedBranchesAsync(AppDbContext context, int actorUserId)
         {
-            var branchId = await context.Branches
-                .OrderBy(x => x.BranchID)
-                .Select(x => x.BranchID)
-                .FirstOrDefaultAsync();
-
-            if (branchId > 0)
+            foreach (var fixedBranch in FixedBranches)
             {
-                return branchId;
+                var existing = await context.Branches
+                    .FirstOrDefaultAsync(x => x.BranchName.ToLower() == fixedBranch.Name.ToLower());
+
+                if (existing == null)
+                {
+                    context.Branches.Add(new Branch
+                    {
+                        BranchName = fixedBranch.Name,
+                        Address = fixedBranch.Address,
+                        Capacity = fixedBranch.Capacity,
+                        IsActive = true,
+                        CreatedByUserID = actorUserId,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                    continue;
+                }
+
+                existing.Address = fixedBranch.Address;
+                existing.Capacity = fixedBranch.Capacity;
+                existing.IsActive = true;
+                existing.UpdatedByUserID = actorUserId;
+                existing.UpdatedAt = DateTime.UtcNow;
             }
 
-            var branch = new Branch
-            {
-                BranchName = "Main Branch",
-                Address = "System seeded branch",
-                Capacity = 0,
-                IsActive = true,
-                CreatedByUserID = actorUserId,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            context.Branches.Add(branch);
             await context.SaveChangesAsync();
-            return branch.BranchID;
         }
 
         private static async Task<int> EnsureRoleAsync(AppDbContext context, string roleName, int actorUserId)
@@ -100,7 +111,7 @@ namespace weave_erp_backend_api.Services
             return role.RoleID;
         }
 
-        private static async Task EnsureRequiredRolesAndUsersAsync(AppDbContext context, int branchId, int actorUserId)
+        private static async Task EnsureRequiredRolesAndUsersAsync(AppDbContext context, int actorUserId)
         {
             foreach (var account in SeedAccounts)
             {
@@ -113,7 +124,6 @@ namespace weave_erp_backend_api.Services
                 {
                     user = new User
                     {
-                        BranchID = branchId,
                         RoleID = roleId,
                         Username = account.Username,
                         Fullname = account.Fullname,
@@ -129,7 +139,6 @@ namespace weave_erp_backend_api.Services
                     continue;
                 }
 
-                user.BranchID = branchId;
                 user.RoleID = roleId;
                 user.PasswordHash = passwordHash;
                 user.IsActive = true;
@@ -198,16 +207,15 @@ SET IDENTITY_INSERT [Role] OFF;");
                 {
                     await context.Database.ExecuteSqlInterpolatedAsync($@"
 SET IDENTITY_INSERT [User] ON;
-INSERT INTO [User] ([UserID], [BranchID], [RoleID], [Username], [Fullname], [Email], [ContactNumber], [PasswordHash], [IsActive], [CreatedByUserID], [CreatedAt], [UpdatedByUserID], [UpdatedAt])
-VALUES ({newUserId}, {branchId}, {roleId}, {superAdmin.Username}, {superAdmin.Fullname}, {superAdmin.Email}, {null}, {passwordHash}, {true}, {newUserId}, {now}, {null}, {null});
+INSERT INTO [User] ([UserID], [RoleID], [Username], [Fullname], [Email], [ContactNumber], [PasswordHash], [IsActive], [CreatedByUserID], [CreatedAt], [UpdatedByUserID], [UpdatedAt])
+VALUES ({newUserId}, {roleId}, {superAdmin.Username}, {superAdmin.Fullname}, {superAdmin.Email}, {null}, {passwordHash}, {true}, {newUserId}, {now}, {null}, {null});
 SET IDENTITY_INSERT [User] OFF;");
                 }
                 else
                 {
                     await context.Database.ExecuteSqlInterpolatedAsync($@"
 UPDATE [User]
-SET [BranchID] = {branchId},
-    [RoleID] = {roleId},
+SET [RoleID] = {roleId},
     [PasswordHash] = {passwordHash},
     [IsActive] = {true},
     [UpdatedByUserID] = {newUserId},

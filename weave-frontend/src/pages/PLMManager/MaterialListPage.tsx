@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
-import { Archive, CalendarClock, Eye, Layers, Pencil, ShieldCheck, ToggleLeft, ToggleRight, Truck } from "lucide-react";
+import { Archive, CalendarClock, Eye, Layers, Pencil, ShieldCheck, Truck, X } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/Card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
@@ -16,8 +16,11 @@ import Pagination from "../../components/ui/Pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import SecondaryButton from "../../components/ui/SecondaryButton";
 import PrimaryButton from "../../components/ui/PrimaryButton";
+import ToggleSwitch from "../../components/ui/ToggleSwitch";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import DetailsModal from "../../components/ui/DetailsModal";
+import ConfirmationModal from "../../components/ui/ConfirmationModal";
+import Toast from "../../components/ui/Toast";
 import {
   loadMaterials,
   saveMaterials,
@@ -91,6 +94,9 @@ const CATEGORY_TO_UNIT: Record<string, string> = MATERIAL_CATEGORY_UNIT_OPTIONS.
 
 const UNIT_OPTIONS = Array.from(new Set(MATERIAL_CATEGORY_UNIT_OPTIONS.map((item) => item.unit)));
 
+type ConfirmationAction = "save" | "archive" | "toggle-status";
+type MaterialSaveMode = "create" | "update";
+
 function AddEditMaterialModal({
   isOpen,
   isEditing,
@@ -114,10 +120,21 @@ function AddEditMaterialModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="border-b border-slate-100 bg-slate-50/60 px-6 py-4">
-          <h3 className="text-base font-bold text-slate-800">{isEditing ? "Edit Material" : "Add Material"}</h3>
-          <p className="text-xs text-slate-500">Manage material cost, supplier, and category references.</p>
+      <div className="w-full max-w-3xl overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-2xl">
+        <div className="relative border-b border-slate-100 bg-gradient-to-r from-white to-slate-50 px-6 py-5">
+          <h3 className="text-lg font-semibold text-slate-900">{isEditing ? "Edit Material" : "Add Material"}</h3>
+          <p className="mt-1 text-xs text-slate-500">Manage material cost, supplier, and category references.</p>
+          <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            Required: Material name, category, unit, and price
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close material modal"
+            className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X size={16} />
+          </button>
         </div>
         <div className="grid gap-4 p-6 sm:grid-cols-2">
           <div className="space-y-2">
@@ -209,7 +226,7 @@ function AddEditMaterialModal({
             </p>
           ) : null}
         </div>
-        <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-6 py-4">
+        <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/80 px-6 py-4">
           <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
           <PrimaryButton onClick={onSave} className="!w-auto !rounded-full !px-5 !py-2.5 !text-xs">
             {isEditing ? "Save Changes" : "Create Material"}
@@ -235,6 +252,24 @@ export default function MaterialListPage() {
   const [form, setForm] = useState<MaterialForm>(emptyForm);
   const [fieldErrors, setFieldErrors] = useState<MaterialFieldErrors>({});
   const [formError, setFormError] = useState("");
+  const [pendingMaterialSaveMode, setPendingMaterialSaveMode] = useState<MaterialSaveMode | null>(null);
+  const [pendingMaterialId, setPendingMaterialId] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<{
+    isOpen: boolean;
+    action: ConfirmationAction | null;
+    title: string;
+    message: string;
+    variant: "primary" | "danger";
+    confirmText: string;
+  }>({
+    isOpen: false,
+    action: null,
+    title: "",
+    message: "",
+    variant: "primary",
+    confirmText: "Confirm",
+  });
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const mapBackendMaterial = (item: Material): MaterialRecord => ({
     id: String(item.MaterialID),
@@ -369,115 +404,220 @@ export default function MaterialListPage() {
     setIsModalOpen(true);
   };
 
-  const saveMaterial = () => {
+  const requestSaveMaterial = () => {
     const clientErrors = validateForm(form);
     setFieldErrors(clientErrors);
     setFormError("");
     if (hasErrors(clientErrors)) return;
+    const mode: MaterialSaveMode = editingId ? "update" : "create";
+    setPendingMaterialSaveMode(mode);
+    setPendingMaterialId(editingId);
+    setConfirmation({
+      isOpen: true,
+      action: "save",
+      title: mode === "update" ? "Confirm Save Changes" : "Confirm Create Material",
+      message:
+        mode === "update"
+          ? "Apply these updates to the selected material?"
+          : "Create this material with the provided details?",
+      variant: "primary",
+      confirmText: mode === "update" ? "Save Changes" : "Create Material",
+    });
+  };
+
+  const saveMaterial = async (mode: MaterialSaveMode, targetId?: string | null) => {
+    const nowIso = new Date().toISOString();
+    const numericPrice = Number(form.price);
+    if (!Number.isFinite(numericPrice) || numericPrice < 0) return;
+
+    try {
+      if (mode === "update" && targetId) {
+        const id = Number(targetId);
+        const existing = materials.find((item) => item.id === targetId);
+        if (!Number.isFinite(id) || !existing) return;
+
+        await materialsApi.update(id, {
+          MaterialID: id,
+          Name: form.name.trim(),
+          Type: form.category.trim(),
+          Unit: form.unit.trim(),
+          UnitCost: numericPrice,
+          SupplierName: form.supplier.trim() || undefined,
+          Notes: form.notes.trim() || undefined,
+          Status: existing.status,
+          CreatedByUserID: existing.createdByUserID ?? user?.userID ?? 1,
+          CreatedAt: existing.createdAt ?? nowIso,
+          UpdatedByUserID: user?.userID ?? existing.updatedByUserID ?? null,
+          UpdatedAt: nowIso,
+        });
+      } else {
+        await materialsApi.create({
+          Name: form.name.trim(),
+          Type: form.category.trim(),
+          Unit: form.unit.trim(),
+          UnitCost: numericPrice,
+          SupplierName: form.supplier.trim() || undefined,
+          Notes: form.notes.trim() || undefined,
+          Status: "Active",
+          CreatedByUserID: user?.userID ?? 1,
+          CreatedAt: nowIso,
+          UpdatedByUserID: null,
+          UpdatedAt: null,
+        });
+      }
+
+      await loadMaterialsFromBackend();
+      setIsModalOpen(false);
+      setEditingId(null);
+      setForm(emptyForm);
+      setFieldErrors({});
+      setFormError("");
+      setToast({
+        type: "success",
+        message: mode === "update" ? "Material updated successfully." : "Material created successfully.",
+      });
+    } catch (error) {
+      const validationErrors =
+        typeof error === "object" && error !== null && "validationErrors" in error
+          ? (error as { validationErrors?: Record<string, string[] | string> }).validationErrors
+          : undefined;
+      const mapped = mapValidationErrors(validationErrors);
+      setFieldErrors(mapped);
+      const first = Object.values(mapped).find(Boolean);
+      const message = first || (error instanceof Error ? error.message : "Failed to save material.");
+      setFormError(message);
+      setToast({ type: "error", message });
+    } finally {
+      // Pending action state is cleared by the caller after confirm/cancel flow.
+    }
+  };
+
+  const requestArchiveMaterial = (id: string, name: string) => {
+    setPendingMaterialId(id);
+    setConfirmation({
+      isOpen: true,
+      action: "archive",
+      title: "Confirm Archive Material",
+      message: `Are you sure you want to archive ${name}?`,
+      variant: "danger",
+      confirmText: "Archive Material",
+    });
+  };
+
+  const requestToggleMaterialStatus = (item: MaterialRecord) => {
+    if (item.status === "Archived") return;
+    setPendingMaterialId(item.id);
+    const nextStatus = item.status === "Active" ? "Inactive" : "Active";
+    setConfirmation({
+      isOpen: true,
+      action: "toggle-status",
+      title: `Confirm Set ${nextStatus}`,
+      message: `Set ${item.name} status to ${nextStatus}?`,
+      variant: "primary",
+      confirmText: `Set ${nextStatus}`,
+    });
+  };
+
+  const clearPendingAction = () => {
+    setPendingMaterialSaveMode(null);
+    setPendingMaterialId(null);
+  };
+
+  const closeConfirmation = () => {
+    setConfirmation({
+      isOpen: false,
+      action: null,
+      title: "",
+      message: "",
+      variant: "primary",
+      confirmText: "Confirm",
+    });
+    clearPendingAction();
+  };
+
+  const handleConfirmationConfirm = () => {
     void (async () => {
-      const nowIso = new Date().toISOString();
-      const numericPrice = Number(form.price);
-      if (!Number.isFinite(numericPrice) || numericPrice < 0) return;
+      const action = confirmation.action;
+      const targetId = pendingMaterialId;
+      const saveMode = pendingMaterialSaveMode;
+      setConfirmation({
+        isOpen: false,
+        action: null,
+        title: "",
+        message: "",
+        variant: "primary",
+        confirmText: "Confirm",
+      });
 
-      try {
-        if (editingId) {
-          const id = Number(editingId);
-          const existing = materials.find((item) => item.id === editingId);
-          if (!Number.isFinite(id) || !existing) return;
+      if (action === "save" && saveMode) {
+        await saveMaterial(saveMode, targetId);
+        clearPendingAction();
+        return;
+      }
 
-          await materialsApi.update(id, {
-            MaterialID: id,
-            Name: form.name.trim(),
-            Type: form.category.trim(),
-            Unit: form.unit.trim(),
-            UnitCost: numericPrice,
-            SupplierName: form.supplier.trim() || undefined,
-            Notes: form.notes.trim() || undefined,
-            Status: existing.status,
-            CreatedByUserID: existing.createdByUserID ?? user?.userID ?? 1,
-            CreatedAt: existing.createdAt ?? nowIso,
-            UpdatedByUserID: user?.userID ?? existing.updatedByUserID ?? null,
+      if (!targetId) return;
+      const numericId = Number(targetId);
+      if (!Number.isFinite(numericId)) return;
+
+      if (action === "archive") {
+        try {
+          await materialsApi.archive(numericId);
+          await loadMaterialsFromBackend();
+          setToast({ type: "success", message: "Material archived successfully." });
+        } catch {
+          setToast({ type: "error", message: "Failed to archive material." });
+        }
+        clearPendingAction();
+        return;
+      }
+
+      if (action === "toggle-status") {
+        const item = materials.find((entry) => entry.id === targetId);
+        if (!item || item.status === "Archived") return;
+        const nextStatus: MaterialStatus = item.status === "Active" ? "Inactive" : "Active";
+        const nowIso = new Date().toISOString();
+        try {
+          await materialsApi.update(numericId, {
+            MaterialID: numericId,
+            Name: item.name,
+            Type: item.category,
+            Unit: item.unit,
+            UnitCost: item.price,
+            SupplierName: item.supplier || undefined,
+            Notes: item.notes || undefined,
+            Status: nextStatus,
+            CreatedByUserID: item.createdByUserID ?? user?.userID ?? 1,
+            CreatedAt: item.createdAt ?? nowIso,
+            UpdatedByUserID: user?.userID ?? item.updatedByUserID ?? null,
             UpdatedAt: nowIso,
           });
-        } else {
-          await materialsApi.create({
-            Name: form.name.trim(),
-            Type: form.category.trim(),
-            Unit: form.unit.trim(),
-            UnitCost: numericPrice,
-            SupplierName: form.supplier.trim() || undefined,
-            Notes: form.notes.trim() || undefined,
-            Status: "Active",
-            CreatedByUserID: user?.userID ?? 1,
-            CreatedAt: nowIso,
-            UpdatedByUserID: null,
-            UpdatedAt: null,
-          });
+          await loadMaterialsFromBackend();
+          setToast({ type: "success", message: `Material set to ${nextStatus}.` });
+        } catch {
+          setToast({ type: "error", message: "Failed to update material status." });
         }
-
-        await loadMaterialsFromBackend();
-        setIsModalOpen(false);
-        setEditingId(null);
-        setForm(emptyForm);
-        setFieldErrors({});
-        setFormError("");
-      } catch (error) {
-        const validationErrors =
-          typeof error === "object" && error !== null && "validationErrors" in error
-            ? (error as { validationErrors?: Record<string, string[] | string> }).validationErrors
-            : undefined;
-        const mapped = mapValidationErrors(validationErrors);
-        setFieldErrors(mapped);
-        const first = Object.values(mapped).find(Boolean);
-        setFormError(first || (error instanceof Error ? error.message : "Failed to save material."));
+        clearPendingAction();
       }
-    })();
-  };
-
-  const archiveMaterial = (id: string) => {
-    void (async () => {
-      const numericId = Number(id);
-      if (!Number.isFinite(numericId)) return;
-      await materialsApi.archive(numericId);
-      await loadMaterialsFromBackend();
-    })();
-  };
-
-  const toggleMaterialStatus = (item: MaterialRecord) => {
-    if (item.status === "Archived") return;
-    void (async () => {
-      const numericId = Number(item.id);
-      if (!Number.isFinite(numericId)) return;
-      const nextStatus: MaterialStatus = item.status === "Active" ? "Inactive" : "Active";
-      const nowIso = new Date().toISOString();
-      await materialsApi.update(numericId, {
-        MaterialID: numericId,
-        Name: item.name,
-        Type: item.category,
-        Unit: item.unit,
-        UnitCost: item.price,
-        SupplierName: item.supplier || undefined,
-        Notes: item.notes || undefined,
-        Status: nextStatus,
-        CreatedByUserID: item.createdByUserID ?? user?.userID ?? 1,
-        CreatedAt: item.createdAt ?? nowIso,
-        UpdatedByUserID: user?.userID ?? item.updatedByUserID ?? null,
-        UpdatedAt: nowIso,
-      });
-      await loadMaterialsFromBackend();
     })();
   };
 
   return (
     <div className="space-y-6">
-      <div>
+      {toast ? (
+        <Toast
+          type={toast.type}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
+      ) : null}
+      <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-white to-slate-50 px-5 py-4 shadow-sm">
         <h1 className="text-2xl font-semibold text-slate-900">Material List</h1>
         <p className="mt-1 text-sm text-slate-500">
           Create and maintain material references, pricing, and supplier metadata for BOM usage.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+      <div className="rounded-2xl border border-sky-100/80 bg-gradient-to-r from-sky-50 to-cyan-50 p-4 shadow-sm">
         <p className="text-xs font-bold uppercase tracking-wide text-sky-700">Validation Rule</p>
         <p className="mt-1 text-sm text-sky-900">
           Materials should include unit, current price, and supplier before being used in BOM.
@@ -485,21 +625,21 @@ export default function MaterialListPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader className="pb-2"><CardTitle className="text-sm">Visible Materials</CardTitle></CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold text-slate-900">{filteredMaterials.length}</p>
             <p className="mt-1 text-xs text-slate-500">Materials matching current filters.</p>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader className="pb-2"><CardTitle className="text-sm">Active</CardTitle></CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold text-emerald-700">{activeCount}</p>
             <p className="mt-1 text-xs text-slate-500">Available for BOM selection.</p>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader className="pb-2"><CardTitle className="text-sm">Avg Price</CardTitle></CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold text-indigo-700">
@@ -510,7 +650,7 @@ export default function MaterialListPage() {
         </Card>
       </div>
 
-      <Card className="rounded-2xl">
+      <Card className="rounded-2xl border-slate-200/80 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">Materials Registry</CardTitle>
           <CardDescription>Search and manage materials that drive BOM pricing.</CardDescription>
@@ -609,15 +749,16 @@ export default function MaterialListPage() {
                         <SecondaryButton icon={Pencil} className="!rounded-lg !px-2 !py-2" onClick={() => openEdit(item)}>
                           <span className="sr-only">Edit</span>
                         </SecondaryButton>
-                        <SecondaryButton
-                          icon={item.status === "Active" ? ToggleRight : ToggleLeft}
-                          className="!rounded-lg !px-2 !py-2"
-                          ariaLabel={item.status === "Active" ? `Set ${item.name} inactive` : `Set ${item.name} active`}
-                          onClick={() => toggleMaterialStatus(item)}
-                        >
-                          <span className="sr-only">{item.status === "Active" ? "Set Inactive" : "Set Active"}</span>
-                        </SecondaryButton>
-                        <SecondaryButton icon={Archive} className="!rounded-lg !px-2 !py-2" onClick={() => archiveMaterial(item.id)}>
+                        {item.status === "Archived" ? (
+                          <span className="px-1 text-[11px] text-slate-400">Archived</span>
+                        ) : (
+                          <ToggleSwitch
+                            active={item.status === "Active"}
+                            onToggle={() => requestToggleMaterialStatus(item)}
+                            label={item.status === "Active" ? `Set ${item.name} inactive` : `Set ${item.name} active`}
+                          />
+                        )}
+                        <SecondaryButton icon={Archive} className="!rounded-lg !px-2 !py-2" onClick={() => requestArchiveMaterial(item.id, item.name)}>
                           <span className="sr-only">Archive</span>
                         </SecondaryButton>
                       </div>
@@ -692,7 +833,17 @@ export default function MaterialListPage() {
             return next;
           });
         }}
-        onSave={saveMaterial}
+        onSave={requestSaveMaterial}
+      />
+
+      <ConfirmationModal
+        isOpen={confirmation.isOpen}
+        onClose={closeConfirmation}
+        onConfirm={handleConfirmationConfirm}
+        title={confirmation.title}
+        message={confirmation.message}
+        variant={confirmation.variant}
+        confirmText={confirmation.confirmText}
       />
     </div>
   );

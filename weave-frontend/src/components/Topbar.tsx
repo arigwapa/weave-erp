@@ -9,6 +9,7 @@ import { adminWorkflowApi, type NotificationCenterItem } from "../lib/api/adminW
 import { getApiErrorMessage } from "../lib/api/handleApiError";
 import NotificationBell from "./NotificationBell";
 import { StatusBadge } from "./ui/StatusBadge";
+import { getNotificationHubConnection, startNotificationHub } from "../realtime/signalr";
 
 // each role has its own profile page URL
 const ROLE_PROFILE_ROUTES: Record<string, string> = {
@@ -90,13 +91,67 @@ export default function Topbar() {
     return () => window.removeEventListener("mousedown", onPointerDown);
   }, [isNotificationOpen]);
 
+  useEffect(() => {
+    if (!isAdminArea || !user) return;
+    const backendDisabled = (import.meta.env.VITE_DISABLE_BACKEND ?? "false") === "true";
+    if (backendDisabled) return;
+
+    let mounted = true;
+    const onNotify = (payload: {
+      NotificationID: number;
+      Type: string;
+      Message: string;
+      IsRead: boolean;
+      CreatedAt: string;
+    }) => {
+      if (!mounted) return;
+      const next: NotificationCenterItem = {
+        NotificationID: String(payload.NotificationID),
+        RoleTarget: role ?? "Admin",
+        Channel: payload.Type?.toLowerCase() === "alert" ? "Real-time" : "History",
+        Title: payload.Type?.toLowerCase() === "alert" ? "System Alert" : "System Update",
+        Message: payload.Message ?? "",
+        Timestamp: payload.CreatedAt
+          ? new Date(payload.CreatedAt).toLocaleString("en-PH", {
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "",
+        IsUnread: payload.IsRead === false,
+      };
+
+      setNotifications((prev) => {
+        if (prev.some((item) => item.NotificationID === next.NotificationID)) return prev;
+        return [next, ...prev].slice(0, 200);
+      });
+    };
+
+    const setup = async () => {
+      const hub = await startNotificationHub();
+      if (!mounted) return;
+      hub.on("notify", onNotify);
+    };
+
+    setup().catch(() => {
+      // Silent fallback: notifications still load from API.
+    });
+
+    return () => {
+      mounted = false;
+      getNotificationHubConnection().off("notify", onNotify);
+    };
+  }, [isAdminArea, role, user]);
+
   return (
     <div
       className={`flex items-center gap-3 h-10 my-auto ${
         user ? "pl-6 border-l border-slate-200 dark:border-slate-700" : ""
       }`}
     >
-      {user && <NotificationBell userId={user.userID} />}
+      {user && <NotificationBell userId={user.userID} roleName={user.roleName} />}
       {isAdminArea && (
         <div className="relative" ref={dropdownRef}>
           <button

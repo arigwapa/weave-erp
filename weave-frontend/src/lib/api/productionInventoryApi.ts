@@ -15,6 +15,7 @@ export interface WarehouseInventoryRow {
   BinID: number;
   BinLocation: string;
   CollectionName: string;
+  BranchName: string;
   QuantityOnHand: number;
   Status: string;
   ReleaseTag: string;

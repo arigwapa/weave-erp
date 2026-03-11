@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using weave_erp_backend_api.Services;
 
 namespace weave_erp_backend_api.Controllers
@@ -127,8 +128,10 @@ namespace weave_erp_backend_api.Controllers
             [FromQuery] string? role = null,
             [FromQuery] int? branchId = null)
         {
+            var currentUserId = GetActorUserId();
             var notifications = await _context.Notifications
                 .AsNoTracking()
+                .Where(item => !item.UserID.HasValue || (currentUserId.HasValue && item.UserID == currentUserId.Value))
                 .OrderByDescending(item => item.CreatedAt)
                 .Take(200)
                 .ToListAsync();
@@ -151,6 +154,12 @@ namespace weave_erp_backend_api.Controllers
             });
 
             return Ok(result);
+        }
+
+        private int? GetActorUserId()
+        {
+            var raw = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return int.TryParse(raw, out var id) ? id : null;
         }
     }
 }

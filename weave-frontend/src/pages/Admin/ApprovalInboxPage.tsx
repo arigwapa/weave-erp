@@ -29,6 +29,7 @@ import {
   type AdminApprovalFinanceItem,
   type AdminApprovalQaItem,
 } from "../../lib/api/adminApprovalInboxApi";
+import { branchApi, type Branch } from "../../lib/api/branchApi";
 import { binLocationApi, type BinLocation } from "../../lib/api/binLocationApi";
 
 type DecisionType = "approve" | "reject" | "revision";
@@ -37,6 +38,7 @@ export default function ApprovalInboxPage() {
   const [productRecords, setProductRecords] = useState<AdminApprovalFinanceItem[]>([]);
   const [qaRecords, setQaRecords] = useState<AdminApprovalQaItem[]>([]);
   const [binLocations, setBinLocations] = useState<BinLocation[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
   const [isSendingInventory, setIsSendingInventory] = useState(false);
@@ -51,6 +53,7 @@ export default function ApprovalInboxPage() {
   const [selectedQaRecord, setSelectedQaRecord] = useState<AdminApprovalQaItem | null>(null);
   const [decisionError, setDecisionError] = useState("");
   const [isSendInventoryOpen, setIsSendInventoryOpen] = useState(false);
+  const [selectedBranchId, setSelectedBranchId] = useState("");
   const [selectedBinId, setSelectedBinId] = useState("");
   const [sendInventoryError, setSendInventoryError] = useState("");
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -59,18 +62,21 @@ export default function ApprovalInboxPage() {
     const loadQueues = async () => {
       setIsLoading(true);
       try {
-        const [productData, qaData, bins] = await Promise.all([
+        const [productData, qaData, bins, branchRows] = await Promise.all([
           adminApprovalInboxApi.listFinance(),
           adminApprovalInboxApi.listQa(),
           binLocationApi.list(),
+          branchApi.list(),
         ]);
         setProductRecords(productData);
         setQaRecords(qaData);
         setBinLocations(bins);
+        setBranches(branchRows);
       } catch {
         setProductRecords([]);
         setQaRecords([]);
         setBinLocations([]);
+        setBranches([]);
       } finally {
         setIsLoading(false);
       }
@@ -122,12 +128,13 @@ export default function ApprovalInboxPage() {
   const filteredProductRecords = useMemo(
     () =>
       productRecords.filter((record) => {
+        const normalizedStatus = normalizeProductQueueStatus(record.Status);
+        if (normalizedStatus.trim().toLowerCase() === "approved") return false;
         const query = searchQuery.toLowerCase();
         const matchesSearch =
           record.CollectionName.toLowerCase().includes(query) ||
           record.CollectionCode.toLowerCase().includes(query) ||
           record.SubmittedBy.toLowerCase().includes(query);
-        const normalizedStatus = normalizeProductQueueStatus(record.Status);
         const matchesStatus =
           statusFilter === "all" || normalizedStatus.toLowerCase() === statusFilter.toLowerCase();
         return matchesSearch && matchesStatus;
@@ -185,6 +192,10 @@ export default function ApprovalInboxPage() {
     () => binLocations.filter((item) => item.IsBinActive),
     [binLocations],
   );
+  const activeBranches = useMemo(
+    () => branches.filter((item) => item.IsActive ?? true),
+    [branches],
+  );
 
   const isBinOccupied = (bin: BinLocation) => {
     const status = (bin.OccupancyStatus ?? "").trim().toLowerCase();
@@ -233,6 +244,7 @@ export default function ApprovalInboxPage() {
 
   const openSendInventoryModal = (record: AdminApprovalQaItem) => {
     setSelectedQaRecord(record);
+    setSelectedBranchId("");
     setSelectedBinId("");
     setSendInventoryError("");
     setIsSendInventoryOpen(true);
@@ -240,6 +252,16 @@ export default function ApprovalInboxPage() {
 
   const submitSendInventory = async () => {
     if (!selectedQaRecord) return;
+    const parsedBranchId = Number(selectedBranchId);
+    if (!Number.isFinite(parsedBranchId) || parsedBranchId <= 0) {
+      setSendInventoryError("Please select a branch.");
+      return;
+    }
+    const selectedBranch = activeBranches.find((branch) => branch.BranchID === parsedBranchId);
+    if (!selectedBranch) {
+      setSendInventoryError("Selected branch is not available.");
+      return;
+    }
     const parsedBinId = Number(selectedBinId);
     if (!Number.isFinite(parsedBinId) || parsedBinId <= 0) {
       setSendInventoryError("Please select a bin location.");
@@ -258,11 +280,14 @@ export default function ApprovalInboxPage() {
     setIsSendingInventory(true);
     try {
       await adminApprovalInboxApi.sendQaToInventory(selectedQaRecord.InspectionID, {
+        BranchID: parsedBranchId,
+        BranchName: selectedBranch.BranchName,
         BinID: parsedBinId,
       });
       setQaRecords((prev) => prev.filter((item) => item.InspectionID !== selectedQaRecord.InspectionID));
       setSelectedQaRecord(null);
       setIsSendInventoryOpen(false);
+      setSelectedBranchId("");
       setSelectedBinId("");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to send to inventory.";
@@ -274,14 +299,14 @@ export default function ApprovalInboxPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-white to-slate-50 px-5 py-4 shadow-sm">
         <h1 className="text-2xl font-semibold text-slate-900">Approval Inbox</h1>
         <p className="mt-1 text-sm text-slate-500">
           Review product and QA submissions and route approved items.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+      <div className="rounded-2xl border border-sky-100 bg-gradient-to-r from-sky-50 to-cyan-50 p-4 shadow-sm">
         <p className="text-xs font-bold uppercase tracking-wide text-sky-700">Validation Rule</p>
         <p className="mt-1 text-sm text-sky-900">
           Rejected or returned approvals should include a clear reason before final submission.
@@ -289,7 +314,7 @@ export default function ApprovalInboxPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Visible Queue</CardTitle>
           </CardHeader>
@@ -298,7 +323,7 @@ export default function ApprovalInboxPage() {
             <p className="mt-1 text-xs text-slate-500">Records matching selected tab and filters.</p>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">For Approval</CardTitle>
           </CardHeader>
@@ -307,7 +332,7 @@ export default function ApprovalInboxPage() {
             <p className="mt-1 text-xs text-slate-500">Product packages waiting for admin decision.</p>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Revisions / Rejected</CardTitle>
           </CardHeader>
@@ -318,7 +343,7 @@ export default function ApprovalInboxPage() {
         </Card>
       </div>
 
-      <Card className="rounded-2xl">
+      <Card className="rounded-2xl border-slate-200/80 shadow-sm">
         <CardContent className="p-6">
           <TabBar
             tabs={tabs}
@@ -331,7 +356,7 @@ export default function ApprovalInboxPage() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-2xl">
+      <Card className="rounded-2xl border-slate-200/80 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">Queue Records</CardTitle>
           <CardDescription>
@@ -339,7 +364,7 @@ export default function ApprovalInboxPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 p-0">
-          <div className="px-6 pt-6">
+          <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
             <TableToolbar
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -613,6 +638,25 @@ export default function ApprovalInboxPage() {
         }
       >
         <div className="space-y-2">
+          <p className="text-xs font-semibold text-slate-500 uppercase">Branch</p>
+          <Select value={selectedBranchId} onValueChange={setSelectedBranchId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select branch" />
+            </SelectTrigger>
+            <SelectContent>
+              {activeBranches.length === 0 ? (
+                <SelectItem value="none-branch" disabled>
+                  No active branches
+                </SelectItem>
+              ) : (
+                activeBranches.map((branch) => (
+                  <SelectItem key={branch.BranchID} value={String(branch.BranchID)}>
+                    {branch.BranchName}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
           <p className="text-xs font-semibold text-slate-500 uppercase">Bin Location</p>
           <Select value={selectedBinId} onValueChange={setSelectedBinId}>
             <SelectTrigger>

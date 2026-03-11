@@ -25,6 +25,7 @@ namespace weave_erp_backend_api.Dtos
         public int BinID { get; set; }
         public string BinLocation { get; set; } = string.Empty;
         public string CollectionName { get; set; } = string.Empty;
+        public string BranchName { get; set; } = string.Empty;
         public decimal QuantityOnHand { get; set; }
         public string Status { get; set; } = string.Empty;
         public string ReleaseTag { get; set; } = "Official Version";

@@ -48,7 +48,6 @@ type UserRow = {
   email: string;
   mobile: string;
   role: string;
-  branch: string;
   warehouse: string;
   createdBy: string;
   createdAt: string;
@@ -100,7 +99,6 @@ const EMPTY_DRAFT: UserDraft = {
 };
 
 const ADMIN_ROLE_BASELINE = [
-  "Warehouse Manager",
   "Production Manager",
   "Product Manager",
   "QA Manager",
@@ -109,7 +107,6 @@ const ADMIN_ROLE_BASELINE = [
 const SUPER_ADMIN_ASSIGNABLE_ROLES = ["Admin", "Warehouse Manager"];
 
 const ADMIN_ASSIGNABLE_MANAGER_ROLES = new Set<string>([
-  "warehouse manager",
   "production manager",
   "product manager",
   "qa manager",
@@ -123,13 +120,6 @@ const ROLE_ALIAS_TO_CANONICAL: Record<string, string> = {
   "branch manager": "Warehouse Manager",
 };
 
-const GLOBAL_SCOPE_ROLES = new Set<string>([
-  "admin",
-  "product manager",
-  "qa manager",
-  "production manager",
-]);
-
 function normalizeRoleName(role: string): string {
   const clean = role.trim();
   if (!clean) return "";
@@ -141,22 +131,6 @@ function isSuperAdminRoleName(role: string): boolean {
     .toLowerCase()
     .replace(/[\s-]/g, "");
   return normalized === "superadmin";
-}
-
-function toBranchColumnValue(roleName: string, branchName: string, warehouseName: string): string {
-  if (isSuperAdminRoleName(roleName)) {
-    return "--";
-  }
-  const normalizedRole = normalizeRoleName(roleName).toLowerCase();
-  if (normalizedRole === "warehouse manager") {
-    return warehouseName && warehouseName !== "Unassigned"
-      ? `Warehouse ${warehouseName}`
-      : "Warehouse Unassigned";
-  }
-  if (GLOBAL_SCOPE_ROLES.has(normalizedRole)) {
-    return "Global";
-  }
-  return branchName || "Unassigned";
 }
 
 function mergeUniqueCaseInsensitive(values: string[]): string[] {
@@ -398,11 +372,6 @@ export default function UserManagementPage() {
           email: u.Email || "-",
           mobile: u.Mobile || "-",
           role: normalizeRoleName(u.RoleName || "-"),
-          branch: toBranchColumnValue(
-            u.RoleName || "-",
-            u.BranchName || (u.BranchID ? `Branch ${u.BranchID}` : "Unassigned"),
-            u.WarehouseName || "Unassigned",
-          ),
           warehouse: u.WarehouseName || "Unassigned",
           createdBy: u.CreatedBy || (u.CreatedByUserID ? `User #${u.CreatedByUserID}` : "-"),
           createdAt: formatDateTime(u.CreatedAt),
@@ -474,7 +443,6 @@ export default function UserManagementPage() {
         user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.mobile.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.branch.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.warehouse.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesRole =
@@ -814,22 +782,22 @@ export default function UserManagementPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-white to-slate-50 px-5 py-4 shadow-sm">
         <h1 className="text-2xl font-semibold text-slate-900">User Management</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Manage identities, branch assignments, security controls, and access reviews.
+          Manage identities, role access, security controls, and access reviews.
         </p>
       </div>
 
-      <Card className="rounded-2xl">
+      <Card className="rounded-2xl border-slate-200/80 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">User List</CardTitle>
           <CardDescription>
-            Filter by role, branch, active state, and last login activity.
+            Filter by role, active state, and last login activity.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 p-0">
-          <div className="px-6 pt-6">
+          <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
             <TableToolbar
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -898,7 +866,6 @@ export default function UserManagementPage() {
               <TableRow>
                 <TableHead className="px-6">User</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>Branch</TableHead>
                 <TableHead>Created By</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Last Login</TableHead>
@@ -908,7 +875,7 @@ export default function UserManagementPage() {
             <TableBody>
               {paginatedUsers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="px-6 py-10 text-center text-sm text-slate-500">
+                  <TableCell colSpan={6} className="px-6 py-10 text-center text-sm text-slate-500">
                     {isLoading ? "Loading users..." : "No users found for current filters."}
                   </TableCell>
                 </TableRow>
@@ -920,7 +887,6 @@ export default function UserManagementPage() {
                       <p className="text-xs text-slate-500">{user.email}</p>
                     </TableCell>
                     <TableCell>{user.role}</TableCell>
-                    <TableCell>{user.branch}</TableCell>
                     <TableCell>{user.createdBy}</TableCell>
                     <TableCell>{user.createdAt}</TableCell>
                     <TableCell className="text-slate-600">{user.lastLogin}</TableCell>
@@ -1012,7 +978,6 @@ export default function UserManagementPage() {
                 { label: "Email", value: selectedUser.email, icon: Mail },
                 { label: "Mobile", value: selectedUser.mobile, icon: Phone },
                 { label: "Role", value: selectedUser.role, icon: ShieldCheck },
-                { label: "Branch", value: selectedUser.branch, icon: Building2 },
                 { label: "Warehouse", value: selectedUser.warehouse, icon: Building2 },
                 { label: "Created By", value: selectedUser.createdBy, icon: UserCircle2 },
                 { label: "Created At", value: selectedUser.createdAt, icon: UserCircle2 },

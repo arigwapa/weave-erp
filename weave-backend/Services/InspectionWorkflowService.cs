@@ -7,10 +7,12 @@ namespace weave_erp_backend_api.Services
     public class InspectionWorkflowService
     {
         private readonly AppDbContext _context;
+        private readonly NotificationService _notificationService;
 
-        public InspectionWorkflowService(AppDbContext context)
+        public InspectionWorkflowService(AppDbContext context, NotificationService notificationService)
         {
             _context = context;
+            _notificationService = notificationService;
         }
 
         public async Task<SaveInspectionResponseDto> SaveInspectionAsync(
@@ -168,6 +170,13 @@ namespace weave_erp_backend_api.Services
                 }
 
                 await tx.CommitAsync(cancellationToken);
+
+                var qaOutcome = uiResult == "Accepted" ? "approved" : "returned";
+                await _notificationService.NotifyAdminsAsync(
+                    $"QA {qaOutcome} batch {batch.Code} for {batch.CollectionName}. Result: {uiResult}.",
+                    type: "Alert",
+                    createdByUserId: currentUserId);
+
                 return new SaveInspectionResponseDto
                 {
                     InspectionID = inspection.InspectionID,

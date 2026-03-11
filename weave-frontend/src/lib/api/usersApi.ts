@@ -3,7 +3,6 @@ import { apiGet, apiPost, apiPut } from "../http";
 
 export interface User {
   UserID: number;
-  BranchID: number;
   BranchName?: string;
   RoleName: string;
   WarehouseID?: number;
@@ -20,7 +19,6 @@ export interface User {
 }
 
 export interface CreateUserDto {
-  BranchID?: number;
   WarehouseID?: number;
   WarehouseName?: string;
   RoleName: string;
@@ -32,7 +30,6 @@ export interface CreateUserDto {
 }
 
 export interface UpdateUserDto {
-  BranchID?: number;
   WarehouseID?: number;
   WarehouseName?: string;
   Fullname?: string;
@@ -51,7 +48,6 @@ function normalizeUser(raw: any): User {
 
   return {
     UserID: Number(raw.UserID ?? raw.userID ?? 0),
-    BranchID: Number(raw.BranchID ?? raw.branchID ?? 0),
     BranchName: raw.BranchName ?? raw.branchName,
     RoleName: raw.RoleName ?? raw.roleName ?? (raw.RoleID ? `Role ${raw.RoleID}` : ""),
     WarehouseID: raw.WarehouseID ?? raw.warehouseID,

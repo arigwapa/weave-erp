@@ -232,14 +232,14 @@ export default function SubmissionCenterPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-white to-slate-50 px-5 py-4 shadow-sm">
         <h1 className="text-2xl font-semibold text-slate-900">Submission Center</h1>
         <p className="mt-1 text-sm text-slate-500">
           Submit collection packages to admin based on product, BOM, and budget-plan completion.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+      <div className="rounded-2xl border border-sky-100/80 bg-gradient-to-r from-sky-50 to-cyan-50 p-4 shadow-sm">
         <p className="text-xs font-bold uppercase tracking-wide text-sky-700">Validation Rule</p>
         <p className="mt-1 text-sm text-sky-900">
           Submission is enabled only when a collection has products, complete BOM, and a budget plan.
@@ -247,7 +247,7 @@ export default function SubmissionCenterPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Pending Queue</CardTitle>
           </CardHeader>
@@ -256,7 +256,7 @@ export default function SubmissionCenterPage() {
             <p className="mt-1 text-xs text-slate-500">Collections still adding products or BOM.</p>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">In Progress</CardTitle>
           </CardHeader>
@@ -265,7 +265,7 @@ export default function SubmissionCenterPage() {
             <p className="mt-1 text-xs text-slate-500">Collections currently planning budget or ready for admin.</p>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Ready Packages</CardTitle>
           </CardHeader>
@@ -276,7 +276,7 @@ export default function SubmissionCenterPage() {
         </Card>
       </div>
 
-      <Card className="rounded-2xl">
+      <Card className="rounded-2xl border-slate-200/80 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">Collection Packages</CardTitle>
           <CardDescription>
@@ -317,7 +317,7 @@ export default function SubmissionCenterPage() {
               Loading collection packages...
             </div>
           ) : visibleRecords.map((item) => (
-            <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-4">
+            <div key={item.id} className="rounded-xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/40 p-4 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-slate-800">{item.id}</p>
                 <StatusBadge status={item.status} />

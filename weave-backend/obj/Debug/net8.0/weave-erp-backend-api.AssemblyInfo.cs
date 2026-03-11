@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("weave-erp-backend-api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e4e2170d6907adc768308c1bdcad1808014ab84e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+88e5b2eb70cc2e0d54ebb17a5d658a2686e2bd70")]
 [assembly: System.Reflection.AssemblyProductAttribute("weave-erp-backend-api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("weave-erp-backend-api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

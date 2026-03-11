@@ -58,14 +58,14 @@ export function InspectionModal({
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
       <div className="w-full max-w-5xl rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-        <div className="px-6 py-4 border-b border-slate-100">
+        <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-white to-slate-50">
           <h3 className="text-base font-semibold text-slate-900">Add Inspection</h3>
           <p className="mt-1 text-xs text-slate-500">Record QA findings and finalize this inspection.</p>
         </div>
 
         <div className="p-6 space-y-6 overflow-y-auto">
-          <section>
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Section 1 - Batch Information</h4>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-2">Section 1 - Batch Information</h4>
             <p className="mb-3 text-xs text-slate-500">Read-only production batch context.</p>
             <div className="grid gap-3 md:grid-cols-3">
               <div>
@@ -99,8 +99,8 @@ export function InspectionModal({
             </div>
           </section>
 
-          <section>
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Section 2 - Inspection Setup</h4>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-2">Section 2 - Inspection Setup</h4>
             <p className="mb-3 text-xs text-slate-500">Set AQL, inspection level, and sampling values.</p>
             <div className="grid gap-3 md:grid-cols-2">
               <div>
@@ -163,8 +163,8 @@ export function InspectionModal({
             onChange={(rows) => setState((prev) => ({ ...prev, defects: rows }))}
           />
 
-          <section>
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Section 5 - Thresholds</h4>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-2">Section 5 - Thresholds</h4>
             <p className="mb-3 text-xs text-slate-500">Manual thresholds for acceptance and rejection.</p>
             <div className="grid gap-3 md:grid-cols-2">
               <div>
@@ -195,8 +195,8 @@ export function InspectionModal({
             rejectThreshold={state.rejectThreshold}
           />
 
-          <section>
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Section 7 - Notes</h4>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-2">Section 7 - Notes</h4>
             <p className="mb-3 text-xs text-slate-500">Observations, rework instructions, and quality remarks.</p>
             <Textarea
               value={state.notes}
@@ -205,8 +205,8 @@ export function InspectionModal({
             />
           </section>
 
-          <section>
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Section 8 - Attachments</h4>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-2">Section 8 - Attachments</h4>
             <p className="mb-3 text-xs text-slate-500">
               Upload UI scaffold is ready. You can wire your file upload service and set FileUrl values here.
             </p>

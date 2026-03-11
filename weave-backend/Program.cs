@@ -18,6 +18,8 @@ builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<BudgetService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<InspectionWorkflowService>();
+builder.Services.AddScoped<AuditLogService>();
+builder.Services.AddHttpClient<GeminiReportService>();
 builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("Cloudinary"));
 
 builder.Services.AddControllers()
@@ -26,6 +28,14 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.PropertyNamingPolicy = null;
     });
 builder.Services.AddSignalR();
+
+var allowedCorsOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>()?
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Select(origin => origin.Trim())
+    .ToHashSet(StringComparer.OrdinalIgnoreCase)
+    ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 builder.Services.AddCors(options =>
 {
@@ -41,6 +51,11 @@ builder.Services.AddCors(options =>
             if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
             {
                 return false;
+            }
+
+            if (allowedCorsOrigins.Contains(origin))
+            {
+                return true;
             }
 
             return string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase)
@@ -108,6 +123,7 @@ app.UseCors("AllowReact");
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<AuditLogMiddleware>();
 
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");

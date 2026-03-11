@@ -12,9 +12,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { TableToolbar } from "../../components/ui/TableToolbar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import PrimaryButton from "../../components/ui/PrimaryButton";
+import SecondaryButton from "../../components/ui/SecondaryButton";
 import TabBar from "../../components/ui/TabBar";
 import DetailsModal from "../../components/ui/DetailsModal";
+import ConfirmationModal from "../../components/ui/ConfirmationModal";
+import Toast from "../../components/ui/Toast";
 import { productionQueueApi, type ProductionQueueItem } from "../../lib/api/productionQueueApi";
 import {
   buildScheduleKey,
@@ -68,6 +70,9 @@ export default function ProductionQueuePage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selected, setSelected] = useState<ProductQueueRow | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isConfirmStartOpen, setIsConfirmStartOpen] = useState(false);
+  const [pendingStartRow, setPendingStartRow] = useState<ProductQueueRow | null>(null);
+  const [toastState, setToastState] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -167,6 +172,11 @@ export default function ProductionQueuePage() {
     setIsDetailsOpen(true);
   };
 
+  const requestStart = (row: ProductQueueRow) => {
+    setPendingStartRow(row);
+    setIsConfirmStartOpen(true);
+  };
+
   const addSchedule = async (row: ProductQueueRow) => {
     const product = row.item;
     const scheduleKey = buildScheduleKey(product.CollectionID, product.ProductID);
@@ -219,19 +229,41 @@ export default function ProductionQueuePage() {
     }
   };
 
+  const confirmStart = async () => {
+    if (!pendingStartRow) return;
+    try {
+      await addSchedule(pendingStartRow);
+      setToastState({
+        type: "success",
+        message: `Run started for ${pendingStartRow.item.ProductSKU}. You can continue scheduling in Run Scheduler.`,
+      });
+      setIsConfirmStartOpen(false);
+      setPendingStartRow(null);
+    } catch {
+      setToastState({
+        type: "error",
+        message: `Unable to start run for ${pendingStartRow.item.ProductSKU}. Please try again.`,
+      });
+      setIsConfirmStartOpen(false);
+      setPendingStartRow(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Production Queue</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Admin-approved products are listed here for production run initiation, with collection as inventory linkage.
-          </p>
+      <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-white to-slate-50 px-5 py-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">Production Queue</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Admin-approved products are listed here for production run initiation, with collection as inventory linkage.
+            </p>
+          </div>
+          <StatusBadge status="Operational" />
         </div>
-        <StatusBadge status="Operational" />
       </div>
 
-      <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+      <div className="rounded-2xl border border-sky-100/80 bg-gradient-to-r from-sky-50 to-cyan-50 p-4 shadow-sm">
         <p className="text-xs font-bold uppercase tracking-wide text-sky-700">Product-Based Workflow</p>
         <p className="mt-1 text-sm text-sky-900">
           Each product runs independently. Collection is kept as FK for inventory traceability.
@@ -242,7 +274,7 @@ export default function ProductionQueuePage() {
         <TabBar tabs={tabs} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as QueueStatus)} />
       </div>
 
-      <Card className="rounded-2xl">
+      <Card className="rounded-2xl border-slate-200/80 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">Approved Product Production Queue</CardTitle>
           <CardDescription>Each row represents one product ready for production.</CardDescription>
@@ -295,18 +327,20 @@ export default function ProductionQueuePage() {
                       <button
                         onClick={() => openDetails(row)}
                         aria-label={`View details for ${row.item.ProductSKU}`}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
                       >
                         <Eye size={14} />
                       </button>
                       {row.tabStatus === "Pending" && (
-                        <PrimaryButton
-                          className="!h-9 !w-auto !rounded-full !bg-emerald-600 !px-4 !py-2 !text-xs hover:!bg-emerald-700"
-                          isLoading={startingScheduleKey === buildScheduleKey(row.item.CollectionID, row.item.ProductID)}
-                          onClick={() => void addSchedule(row)}
+                        <SecondaryButton
+                          className="!h-9 !w-auto !rounded-full !px-4 !py-2 !text-xs"
+                          disabled={startingScheduleKey === buildScheduleKey(row.item.CollectionID, row.item.ProductID)}
+                          onClick={() => requestStart(row)}
                         >
-                          Start
-                        </PrimaryButton>
+                          {startingScheduleKey === buildScheduleKey(row.item.CollectionID, row.item.ProductID)
+                            ? "Starting..."
+                            : "Start Run"}
+                        </SecondaryButton>
                       )}
                     </div>
                   </TableCell>
@@ -357,7 +391,67 @@ export default function ProductionQueuePage() {
           { label: "Budget", value: selected ? `PHP ${selected.item.ApprovedBudget.toLocaleString()}` : "-", icon: CheckCircle2 },
           { label: "Planned Qty", value: selected ? Math.max(1, selected.item.PlannedQty).toLocaleString() : "-", icon: CheckCircle2 },
         ]}
+        footerActions={
+          selected && selected.tabStatus === "Pending" ? (
+            <div className="flex items-center gap-2">
+              <SecondaryButton
+                className="!h-10 !rounded-xl !px-4 !py-2 text-xs"
+                onClick={() => {
+                  setIsDetailsOpen(false);
+                  requestStart(selected);
+                }}
+              >
+                Start Run
+              </SecondaryButton>
+            </div>
+          ) : undefined
+        }
+      >
+        {selected ? (
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Readiness Notes</p>
+            <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
+              {selected.item.Readiness || "No readiness note available."}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Due Date</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{selected.item.DueDate || "-"}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Budget Code</p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">{selected.item.BudgetCode || "-"}</p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </DetailsModal>
+
+      <ConfirmationModal
+        isOpen={isConfirmStartOpen && !!pendingStartRow}
+        onClose={() => {
+          setIsConfirmStartOpen(false);
+          setPendingStartRow(null);
+        }}
+        onConfirm={() => void confirmStart()}
+        title="Start Production Run?"
+        message={
+          pendingStartRow
+            ? `This will move ${pendingStartRow.item.ProductName} (${pendingStartRow.item.ProductSKU}) to the active production workflow.`
+            : "Confirm production start."
+        }
+        variant="primary"
+        confirmText="Start Run"
+        cancelText="Cancel"
       />
+
+      {toastState ? (
+        <Toast
+          type={toastState.type}
+          message={toastState.message}
+          onClose={() => setToastState(null)}
+        />
+      ) : null}
     </div>
   );
 }

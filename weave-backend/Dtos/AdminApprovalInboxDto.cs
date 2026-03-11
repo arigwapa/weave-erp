@@ -78,5 +78,7 @@ namespace weave_erp_backend_api.Dtos
     {
         public int? BinID { get; set; }
         public string? BinCode { get; set; }
+        public int? BranchID { get; set; }
+        public string? BranchName { get; set; }
     }
 }

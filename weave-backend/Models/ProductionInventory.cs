@@ -12,6 +12,9 @@ namespace weave_erp_backend_api.Models
         [Required, StringLength(180)]
         public string CollectionName { get; set; } = string.Empty;
 
+        [StringLength(120)]
+        public string? BranchName { get; set; }
+
         public decimal QuantityOnHand { get; set; }
 
         [Required, StringLength(40)]

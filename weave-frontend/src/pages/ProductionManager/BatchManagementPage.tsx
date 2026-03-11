@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   Boxes,
-  CheckCircle2,
-  Clock3,
+  Eye,
   Factory,
   ListChecks,
+  Package,
   ShieldCheck,
   Wrench,
 } from "lucide-react";
@@ -17,8 +16,6 @@ import { StatusBadge } from "../../components/ui/StatusBadge";
 import DashboardStatsCard from "../../components/ui/DashboardStatsCard";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import SecondaryButton from "../../components/ui/SecondaryButton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
-import TabBar from "../../components/ui/TabBar";
 import {
   Select,
   SelectContent,
@@ -26,6 +23,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
+import DetailsModal from "../../components/ui/DetailsModal";
+import ConfirmationModal from "../../components/ui/ConfirmationModal";
+import Toast from "../../components/ui/Toast";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
+import TabBar from "../../components/ui/TabBar";
 import {
   hydrateBatches,
   listBatchCandidates,
@@ -40,17 +42,21 @@ import { loadRunSchedules, persistRunSchedulesToBackend, saveRunSchedules } from
 import { productsApi } from "../../lib/api/productsApi";
 
 type BatchBoardTab = "Unpacked";
+const FIXED_SIZE_RANGE = "S/M/L/XL/XXL";
 
 export default function BatchManagementPage() {
-  const navigate = useNavigate();
   const [candidates, setCandidates] = useState<BatchCandidate[]>([]);
   const [selectedScheduleKey, setSelectedScheduleKey] = useState("");
-  const [size, setSize] = useState("");
+  const [size, setSize] = useState(FIXED_SIZE_RANGE);
   const [qty, setQty] = useState("");
   const [batches, setBatches] = useState<BatchRecord[]>(() => loadBatches());
   const [statusTab, setStatusTab] = useState<BatchBoardTab>("Unpacked");
   const batchStatusBoardRef = useRef<HTMLDivElement | null>(null);
   const [productNameById, setProductNameById] = useState<Record<number, string>>({});
+  const [isCandidateDetailsOpen, setIsCandidateDetailsOpen] = useState(false);
+  const [selectedBatchDetails, setSelectedBatchDetails] = useState<BatchRecord | null>(null);
+  const [pendingAction, setPendingAction] = useState<null | { type: "createBatch" } | { type: "sendToQa"; code: string }>(null);
+  const [toastState, setToastState] = useState<null | { type: "success" | "error"; message: string }>(null);
 
   const selectedCandidate = useMemo(
     () => candidates.find((item) => item.scheduleKey === selectedScheduleKey) ?? null,
@@ -165,24 +171,15 @@ export default function BatchManagementPage() {
 
   useEffect(() => {
     if (!selectedCandidate) {
-      setSize("");
+      setSize(FIXED_SIZE_RANGE);
       setQty("");
       return;
     }
     const nextSizeOptions = Object.entries(selectedCandidate.sizePlan).filter(([, value]) => value > 0);
-    const nextSize = nextSizeOptions[0]?.[0] ?? "";
     const nextQty = nextSizeOptions[0]?.[1] ?? selectedCandidate.plannedQty;
-    setSize(nextSize);
+    setSize(FIXED_SIZE_RANGE);
     setQty(nextQty > 0 ? String(nextQty) : "1");
   }, [selectedCandidate]);
-
-  useEffect(() => {
-    if (!selectedCandidate || !size) return;
-    const preferredQty = selectedCandidate.sizePlan[size];
-    if (preferredQty > 0) {
-      setQty(String(preferredQty));
-    }
-  }, [selectedCandidate, size]);
 
   useEffect(() => {
     saveBatches(batches);
@@ -190,10 +187,10 @@ export default function BatchManagementPage() {
     void persistBatchesToBackend(batches);
   }, [batches]);
 
-  const createBatch = () => {
-    if (!selectedCandidate || !size || !qty) return;
+  const createBatch = (): boolean => {
+    if (!selectedCandidate || !size || !qty) return false;
     const parsedQty = Number(qty);
-    if (Number.isNaN(parsedQty) || parsedQty <= 0) return;
+    if (Number.isNaN(parsedQty) || parsedQty <= 0) return false;
     const createdScheduleKey = selectedCandidate.scheduleKey;
 
     const nextItem: BatchRecord = {
@@ -234,30 +231,30 @@ export default function BatchManagementPage() {
     window.setTimeout(() => {
       batchStatusBoardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 0);
+    return true;
   };
 
   const updateBatchStatus = (code: string, nextStatus: BatchStatus) => {
     setBatches((prev) =>
       prev.map((item) => (item.code === code ? { ...item, status: nextStatus } : item)),
     );
-    if (nextStatus === "For Inspection") {
-      navigate("/qa/inspection-form");
-    }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Batch Management</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Create and monitor production batches with issue logging and QA-ready status progression.
-          </p>
+      <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-white to-slate-50 px-5 py-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">Batch Management</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Create and monitor production batches with issue logging and QA-ready status progression.
+            </p>
+          </div>
+          <StatusBadge status="Operational" />
         </div>
-        <StatusBadge status="Operational" />
       </div>
 
-      <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+      <div className="rounded-2xl border border-sky-100/80 bg-gradient-to-r from-sky-50 to-cyan-50 p-4 shadow-sm">
         <p className="text-xs font-bold uppercase tracking-wide text-sky-700">Validation Rule</p>
         <p className="mt-1 text-sm text-sky-900">
           Batch creation should only proceed with approved version references and traceable issue categories.
@@ -303,7 +300,7 @@ export default function BatchManagementPage() {
         />
       </section>
 
-      <Card className="rounded-2xl">
+      <Card className="rounded-2xl border-slate-200/80 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">Batch Creation</CardTitle>
           <CardDescription>Create batches directly from Run Candidate items.</CardDescription>
@@ -314,7 +311,18 @@ export default function BatchManagementPage() {
             <Input value={nextBatchCode} readOnly className="bg-slate-50" />
           </div>
           <div className="space-y-2">
-            <Label>Run Candidate</Label>
+            <div className="flex items-center justify-between">
+              <Label>Run Candidate</Label>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 hover:text-indigo-700"
+                onClick={() => setIsCandidateDetailsOpen(true)}
+                disabled={!selectedCandidate}
+              >
+                <Eye size={12} />
+                View Details
+              </button>
+            </div>
             <Select value={selectedScheduleKey} onValueChange={setSelectedScheduleKey}>
               <SelectTrigger className="rounded-xl">
                 <SelectValue placeholder="Select a production run" />
@@ -368,24 +376,7 @@ export default function BatchManagementPage() {
           </div>
           <div className="space-y-2">
             <Label>Size</Label>
-            <Select value={size} onValueChange={setSize}>
-              <SelectTrigger className="rounded-xl">
-                <SelectValue placeholder="Select size" />
-              </SelectTrigger>
-              <SelectContent>
-                {sizeOptions.length === 0 ? (
-                  <SelectItem value="__none" disabled>
-                    No sizes available
-                  </SelectItem>
-                ) : (
-                  sizeOptions.map(([label, planned]) => (
-                    <SelectItem key={label} value={label}>
-                      {label} (planned {planned})
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+            <Input value={FIXED_SIZE_RANGE} disabled readOnly className="bg-slate-50" />
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label>Qty</Label>
@@ -414,12 +405,12 @@ export default function BatchManagementPage() {
             <SecondaryButton
               onClick={() => {
                 if (!selectedCandidate) {
-                  setSize("");
+                  setSize(FIXED_SIZE_RANGE);
                   setQty("");
                   return;
                 }
                 const options = Object.entries(selectedCandidate.sizePlan).filter(([, value]) => value > 0);
-                setSize(options[0]?.[0] ?? "");
+                setSize(FIXED_SIZE_RANGE);
                 setQty(options[0]?.[1] ? String(options[0][1]) : String(selectedCandidate.plannedQty));
               }}
             >
@@ -427,7 +418,7 @@ export default function BatchManagementPage() {
             </SecondaryButton>
             <PrimaryButton
               className="!w-auto !rounded-full !px-5 !py-2.5 !text-xs"
-              onClick={createBatch}
+              onClick={() => setPendingAction({ type: "createBatch" })}
               disabled={!selectedCandidate || !size}
             >
               Create Batch
@@ -436,7 +427,7 @@ export default function BatchManagementPage() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-2xl" ref={batchStatusBoardRef}>
+      <Card className="rounded-2xl border-slate-200/80 shadow-sm" ref={batchStatusBoardRef}>
         <CardHeader>
           <CardTitle className="text-base">Batch Status Board</CardTitle>
           <CardDescription>Shows only batches with status Unpacked.</CardDescription>
@@ -460,7 +451,7 @@ export default function BatchManagementPage() {
                 <TableHead>Size</TableHead>
                 <TableHead>Qty</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Action</TableHead>
+                <TableHead className="text-left">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -484,16 +475,25 @@ export default function BatchManagementPage() {
                       <StatusBadge status={item.status} />
                     </TableCell>
                     <TableCell>
-                      {item.status === "Unpacked" ? (
-                        <SecondaryButton
-                          className="!w-auto !rounded-full !px-4 !py-2 !text-[11px]"
-                          onClick={() => updateBatchStatus(item.code, "For Inspection")}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={() => setSelectedBatchDetails(item)}
+                          aria-label={`View details for ${item.code}`}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
                         >
-                          Send to QA
-                        </SecondaryButton>
-                      ) : (
-                        <span className="text-xs text-slate-500">Awaiting next production step</span>
-                      )}
+                          <Eye size={14} />
+                        </button>
+                        {item.status === "Unpacked" ? (
+                          <SecondaryButton
+                            className="!w-auto !rounded-full !px-4 !py-2 !text-[11px]"
+                            onClick={() => setPendingAction({ type: "sendToQa", code: item.code })}
+                          >
+                            Send to QA
+                          </SecondaryButton>
+                        ) : (
+                          <span className="text-xs text-slate-500">Awaiting next production step</span>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -503,7 +503,7 @@ export default function BatchManagementPage() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-2xl">
+      <Card className="rounded-2xl border-slate-200/80 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">Issue Logging</CardTitle>
           <CardDescription>Capture production blockers by category for batch-level visibility.</CardDescription>
@@ -530,6 +530,130 @@ export default function BatchManagementPage() {
           ))}
         </CardContent>
       </Card>
+
+      <DetailsModal
+        isOpen={isCandidateDetailsOpen && !!selectedCandidate}
+        onClose={() => setIsCandidateDetailsOpen(false)}
+        title="Run Candidate Details"
+        itemId={selectedCandidate?.runCode ?? ""}
+        headerIcon={<Package size={18} className="text-indigo-600" />}
+        gridFields={[
+          {
+            label: "Collection",
+            value: selectedCandidate ? `${selectedCandidate.collectionCode} (${selectedCandidate.collectionName})` : "-",
+            icon: Boxes,
+          },
+          {
+            label: "Product",
+            value: selectedCandidate ? `${selectedCandidate.productSku} - ${selectedCandidate.productName}` : "-",
+            icon: Package,
+          },
+          {
+            label: "Order / Version",
+            value: selectedCandidate ? `${selectedCandidate.orderId} / ${selectedCandidate.versionNumber || "N/A"}` : "-",
+            icon: ListChecks,
+          },
+          {
+            label: "Run / Source Status",
+            value: selectedCandidate ? `${selectedCandidate.runCode} / ${selectedCandidate.sourceStatus}` : "-",
+            icon: Factory,
+          },
+          {
+            label: "Planned Qty",
+            value: selectedCandidate ? selectedCandidate.plannedQty.toLocaleString() : "-",
+            icon: AlertTriangle,
+          },
+          {
+            label: "Size Options",
+            value: sizeOptions.length > 0 ? sizeOptions.map(([label]) => label).join(", ") : "-",
+            icon: ListChecks,
+          },
+        ]}
+      />
+
+      <DetailsModal
+        isOpen={!!selectedBatchDetails}
+        onClose={() => setSelectedBatchDetails(null)}
+        title="Batch Details"
+        itemId={selectedBatchDetails?.code ?? ""}
+        headerIcon={<Boxes size={18} className="text-indigo-600" />}
+        gridFields={[
+          { label: "Batch Code", value: selectedBatchDetails?.code ?? "-", icon: Boxes },
+          {
+            label: "Collection",
+            value: selectedBatchDetails
+              ? `${selectedBatchDetails.collectionCode} (${selectedBatchDetails.collectionName})`
+              : "-",
+            icon: ListChecks,
+          },
+          {
+            label: "Product",
+            value: selectedBatchDetails
+              ? productNameById[selectedBatchDetails.productId] || selectedBatchDetails.product || selectedBatchDetails.productSku
+              : "-",
+            icon: Package,
+          },
+          { label: "Run Code", value: selectedBatchDetails?.runCode || "-", icon: Factory },
+          { label: "Size / Qty", value: selectedBatchDetails ? `${selectedBatchDetails.size} / ${selectedBatchDetails.qty}` : "-", icon: AlertTriangle },
+          {
+            label: "Status",
+            value: selectedBatchDetails ? <StatusBadge status={selectedBatchDetails.status} /> : "-",
+            icon: ShieldCheck,
+          },
+        ]}
+        footerActions={
+          selectedBatchDetails?.status === "Unpacked" ? (
+            <SecondaryButton
+              className="!w-auto !rounded-xl !px-4 !py-2 !text-xs"
+              onClick={() => {
+                setSelectedBatchDetails(null);
+                setPendingAction({ type: "sendToQa", code: selectedBatchDetails.code });
+              }}
+            >
+              Send to QA
+            </SecondaryButton>
+          ) : undefined
+        }
+      />
+
+      <ConfirmationModal
+        isOpen={!!pendingAction}
+        onClose={() => setPendingAction(null)}
+        onConfirm={() => {
+          if (!pendingAction) return;
+          if (pendingAction.type === "createBatch") {
+            const created = createBatch();
+            setToastState(
+              created
+                ? { type: "success", message: "Batch created successfully." }
+                : { type: "error", message: "Unable to create batch. Complete all required fields." },
+            );
+            setPendingAction(null);
+            return;
+          }
+
+          updateBatchStatus(pendingAction.code, "For Inspection");
+          setToastState({ type: "success", message: `Batch ${pendingAction.code} sent to QA.` });
+          setPendingAction(null);
+        }}
+        title={pendingAction?.type === "createBatch" ? "Confirm Batch Creation" : "Send Batch to QA?"}
+        message={
+          pendingAction?.type === "createBatch"
+            ? "This will create a new batch from the selected run candidate and move it to the Unpacked board."
+            : "This will submit the selected batch for quality inspection."
+        }
+        confirmText={pendingAction?.type === "createBatch" ? "Create Batch" : "Send to QA"}
+        cancelText="Cancel"
+        variant="primary"
+      />
+
+      {toastState ? (
+        <Toast
+          type={toastState.type}
+          message={toastState.message}
+          onClose={() => setToastState(null)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -35,14 +35,29 @@ export function InspectionDefectSection({ rows, onChange }: Props) {
   };
 
   return (
-    <section>
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Section 4 - Defect Details</h4>
-      <p className="mb-3 text-xs text-slate-500">Add one row per defect type/category and quantity observed.</p>
+    <section className="rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div>
+          <h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Section 4 - Defect Details</h4>
+          <p className="mt-1 text-xs text-slate-500">Add one row per observed defect with type, category, quantity, and remarks.</p>
+        </div>
+        <PrimaryButton className="!w-auto !rounded-full !px-4 !py-2 !text-[11px]" onClick={addRow}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Defect Row
+        </PrimaryButton>
+      </div>
       <div className="space-y-3">
         {rows.map((row, idx) => (
-          <div key={idx} className="rounded-xl border border-slate-200 p-3">
-            <div className="grid gap-3 md:grid-cols-5">
-              <div>
+          <div key={idx} className="rounded-xl border border-slate-200 p-3.5">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-xs font-semibold text-slate-700">Defect #{idx + 1}</p>
+              <SecondaryButton className="!rounded-full !px-3 !py-1.5 !text-[11px]" onClick={() => removeRow(idx)}>
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                Remove
+              </SecondaryButton>
+            </div>
+            <div className="grid gap-3 md:grid-cols-4">
+              <div className="md:col-span-1">
                 <Label>Defect Type</Label>
                 <select
                   className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
@@ -54,7 +69,7 @@ export function InspectionDefectSection({ rows, onChange }: Props) {
                   <option value="Minor">Minor</option>
                 </select>
               </div>
-              <div>
+              <div className="md:col-span-1">
                 <Label>Defect Category</Label>
                 <Input value={row.DefectCategory} onChange={(e) => updateRow(idx, { DefectCategory: e.target.value })} />
               </div>
@@ -62,7 +77,7 @@ export function InspectionDefectSection({ rows, onChange }: Props) {
                 <Label>Defect Description</Label>
                 <Input value={row.DefectDescription} onChange={(e) => updateRow(idx, { DefectDescription: e.target.value })} />
               </div>
-              <div>
+              <div className="md:col-span-1">
                 <Label>Affected Qty</Label>
                 <Input
                   type="number"
@@ -72,26 +87,14 @@ export function InspectionDefectSection({ rows, onChange }: Props) {
                 />
               </div>
             </div>
-            <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto]">
-              <div>
+            <div className="mt-3">
+              <div className="md:max-w-[70%]">
                 <Label>Remarks</Label>
                 <Textarea value={row.Remarks ?? ""} onChange={(e) => updateRow(idx, { Remarks: e.target.value })} />
-              </div>
-              <div className="flex items-end">
-                <SecondaryButton onClick={() => removeRow(idx)}>
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Remove
-                </SecondaryButton>
               </div>
             </div>
           </div>
         ))}
-      </div>
-      <div className="mt-3">
-        <PrimaryButton className="!w-auto !rounded-full !px-4 !py-2 !text-[11px]" onClick={addRow}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Defect Row
-        </PrimaryButton>
       </div>
     </section>
   );

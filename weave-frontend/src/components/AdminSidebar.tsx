@@ -9,6 +9,7 @@ import {
   Inbox,
   Boxes,
   BarChart3,
+  History,
   ShieldCheck,
   LogOut,
   User,
@@ -56,6 +57,7 @@ const menuGroups = [
         path: "/admin/bin-location",
       },
       { icon: BarChart3, label: "Reports", path: "/admin/reports" },
+      { icon: History, label: "History", path: "/admin/history" },
       {
         icon: ShieldCheck,
         label: "Audit Viewer",

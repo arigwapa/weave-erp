@@ -15,11 +15,12 @@ type RealtimeNotification = {
 type NotificationBellProps = {
   userId?: number;
   regionId?: number;
+  roleName?: string;
 };
 
-export default function NotificationBell({ userId, regionId }: NotificationBellProps) {
+export default function NotificationBell({ userId, regionId, roleName }: NotificationBellProps) {
   useEffect(() => {
-    const backendDisabled = (import.meta.env.VITE_DISABLE_BACKEND ?? "true") === "true";
+    const backendDisabled = (import.meta.env.VITE_DISABLE_BACKEND ?? "false") === "true";
     if (backendDisabled) {
       return;
     }
@@ -39,6 +40,9 @@ export default function NotificationBell({ userId, regionId }: NotificationBellP
       if (typeof regionId === "number") {
         await hub.invoke("JoinRegionGroup", regionId);
       }
+      if (roleName && roleName.trim().length > 0) {
+        await hub.invoke("JoinRoleGroup", roleName);
+      }
 
       hub.on("notify", onNotify);
     };
@@ -52,7 +56,7 @@ export default function NotificationBell({ userId, regionId }: NotificationBellP
       isMounted = false;
       getNotificationHubConnection().off("notify", onNotify);
     };
-  }, [userId, regionId]);
+  }, [userId, regionId, roleName]);
 
   return null;
 }

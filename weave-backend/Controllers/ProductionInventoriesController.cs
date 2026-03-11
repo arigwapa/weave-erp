@@ -54,6 +54,7 @@ namespace weave_erp_backend_api.Controllers
                     CollectionName = string.IsNullOrWhiteSpace(item.CollectionName)
                         ? version?.CollectionName ?? string.Empty
                         : item.CollectionName,
+                    BranchName = item.BranchName ?? string.Empty,
                     QuantityOnHand = item.QuantityOnHand,
                     Status = item.Status,
                     ReleaseTag = string.IsNullOrWhiteSpace(item.ReleaseTag) ? "Official Version" : item.ReleaseTag,

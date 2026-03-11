@@ -13,10 +13,12 @@ namespace weave_erp_backend_api.Controllers
     public class FinanceSubmissionAdminController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly NotificationService _notificationService;
 
-        public FinanceSubmissionAdminController(AppDbContext context)
+        public FinanceSubmissionAdminController(AppDbContext context, NotificationService notificationService)
         {
             _context = context;
+            _notificationService = notificationService;
         }
 
         [HttpGet("collections")]
@@ -142,6 +144,11 @@ namespace weave_erp_backend_api.Controllers
             collection.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+
+            await _notificationService.NotifyAdminsAsync(
+                $"Package {collection.CollectionCode} ({collection.CollectionName}) is ready for admin approval.",
+                type: "Alert",
+                createdByUserId: actorUserId);
 
             return Ok(new FinanceSubmissionAdminCollectionDto
             {

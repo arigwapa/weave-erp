@@ -8,6 +8,12 @@
   height: 100%;
 }
 
+/* Global text size override across frontend */
+#root,
+#root * {
+  font-size: 12px !important;
+}
+
 /* 2. CUSTOM ANIMATIONS FOR LOGIN PAGE */
 
 /* Floating Animation for the widgets (Production Live / Quality Control) */

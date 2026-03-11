@@ -247,6 +247,29 @@ namespace weave_erp_backend_api.Controllers
                 return NotFound($"BinID {binId.Value} was not found.");
             }
 
+            var branchId = request?.BranchID;
+            var rawBranchName = (request?.BranchName ?? string.Empty).Trim();
+            Branch? selectedBranch = null;
+            if (branchId.HasValue && branchId.Value > 0)
+            {
+                selectedBranch = await _context.Branches
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(item => item.BranchID == branchId.Value && item.IsActive);
+            }
+            else if (!string.IsNullOrWhiteSpace(rawBranchName))
+            {
+                selectedBranch = await _context.Branches
+                    .AsNoTracking()
+                    .Where(item => item.IsActive && item.BranchName.ToLower() == rawBranchName.ToLower())
+                    .OrderBy(item => item.BranchID)
+                    .FirstOrDefaultAsync();
+            }
+
+            if (selectedBranch == null)
+            {
+                return BadRequest("Please select an active branch before sending to inventory.");
+            }
+
             var occupiedByOtherVersion = await _context.ProductionInventories
                 .AsNoTracking()
                 .AnyAsync(item =>
@@ -271,6 +294,7 @@ namespace weave_erp_backend_api.Controllers
                     BinID = binId.Value,
                     VersionID = version.VersionID,
                     CollectionName = !string.IsNullOrWhiteSpace(board.CollectionName) ? board.CollectionName : version.CollectionName,
+                    BranchName = selectedBranch.BranchName,
                     QuantityOnHand = quantity,
                     Status = "Available",
                     ReleaseTag = "Official Version",
@@ -292,6 +316,7 @@ namespace weave_erp_backend_api.Controllers
                 existingInventory.CollectionName = !string.IsNullOrWhiteSpace(board.CollectionName)
                     ? board.CollectionName
                     : existingInventory.CollectionName;
+                existingInventory.BranchName = selectedBranch.BranchName;
                 existingInventory.SourceInspectionID = inspection.InspectionID;
                 existingInventory.BatchBoardID = board.BatchBoardID;
                 existingInventory.ProductID = board.ProductID > 0 ? board.ProductID : existingInventory.ProductID;

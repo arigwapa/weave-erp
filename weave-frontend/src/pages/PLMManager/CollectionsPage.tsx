@@ -99,6 +99,7 @@ type BOMRecord = {
 };
 
 type ConfirmationAction = "archive";
+type CollectionSaveMode = "create" | "update";
 
 type ConfirmationState = {
   isOpen: boolean;
@@ -172,10 +173,15 @@ function AddEditCollectionModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="border-b border-slate-100 bg-slate-50/60 px-6 py-4">
-          <h3 className="text-base font-bold text-slate-800">{isEditing ? "Edit Collection" : "Add Collection"}</h3>
-          <p className="text-xs text-slate-500">Manage collection metadata before product setup and submission.</p>
+      <div className="w-full max-w-3xl overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-2xl">
+        <div className="border-b border-slate-100 bg-gradient-to-r from-white to-slate-50 px-6 py-5">
+          <h3 className="text-lg font-semibold text-slate-900">{isEditing ? "Edit Collection" : "Add Collection"}</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Manage collection metadata before product setup and submission.
+          </p>
+          <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            Required: Collection code, name, season, and target launch date
+          </p>
         </div>
 
         <div className="grid gap-4 p-6 sm:grid-cols-2">
@@ -236,7 +242,7 @@ function AddEditCollectionModal({
           ) : null}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-6 py-4">
+        <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/80 px-6 py-4">
           <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
           <PrimaryButton onClick={onSave} className="!w-auto !rounded-full !px-5 !py-2.5 !text-xs">
             {isEditing ? "Save Changes" : "Create Collection"}
@@ -876,6 +882,7 @@ export default function CollectionsPage() {
     confirmText: "Confirm",
   });
   const [toastState, setToastState] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [pendingCollectionSaveMode, setPendingCollectionSaveMode] = useState<CollectionSaveMode | null>(null);
 
   const toDateInput = (value?: string): string => {
     if (!value) return "";
@@ -1188,52 +1195,73 @@ export default function CollectionsPage() {
     setIsModalOpen(true);
   };
 
-  const saveCollection = () => {
+  const requestSaveCollection = () => {
     const clientErrors = validateCollectionForm(formData);
     setCollectionFieldErrors(clientErrors);
     setCollectionFormError("");
     if (hasCollectionFieldErrors(clientErrors)) return;
+    const mode: CollectionSaveMode = editingId ? "update" : "create";
+    setPendingCollectionSaveMode(mode);
+    setConfirmation({
+      isOpen: true,
+      action: "archive",
+      title: mode === "update" ? "Confirm Save Changes" : "Confirm Create Collection",
+      message:
+        mode === "update"
+          ? "Apply these updates to the selected collection?"
+          : "Create this collection with the provided details?",
+      variant: "primary",
+      confirmText: mode === "update" ? "Save Changes" : "Create Collection",
+      reopenProductModalOnCancel: false,
+    });
+  };
 
-    void (async () => {
-      try {
-        if (editingId) {
-          await collectionsApi.update(editingId, {
-            CollectionCode: formData.code.trim(),
-            CollectionName: formData.name.trim(),
-            Season: formData.season.trim(),
-            TargetLaunchDate: formData.launchDate,
-            Notes: formData.notes.trim() || undefined,
-          });
-        } else {
-          await collectionsApi.create({
-            CollectionCode: formData.code.trim(),
-            CollectionName: formData.name.trim(),
-            Season: formData.season.trim(),
-            TargetLaunchDate: formData.launchDate,
-            Notes: formData.notes.trim() || undefined,
-          });
-        }
-
-        await loadCollections();
-        setIsModalOpen(false);
-        setEditingId(null);
-        setFormData(emptyForm);
-        setCollectionFieldErrors({});
-        setCollectionFormError("");
-      } catch (error) {
-        const validationErrors =
-          typeof error === "object" && error !== null && "validationErrors" in error
-            ? (error as { validationErrors?: Record<string, string[] | string> }).validationErrors
-            : undefined;
-        const mapped = mapCollectionValidationErrors(validationErrors);
-        setCollectionFieldErrors(mapped);
-        const firstValidationMessage = Object.values(mapped).find(Boolean);
-        const message =
-          firstValidationMessage ||
-          (error instanceof Error ? error.message : "Failed to save collection.");
-        setCollectionFormError(message);
+  const saveCollection = async () => {
+    try {
+      if (editingId) {
+        await collectionsApi.update(editingId, {
+          CollectionCode: formData.code.trim(),
+          CollectionName: formData.name.trim(),
+          Season: formData.season.trim(),
+          TargetLaunchDate: formData.launchDate,
+          Notes: formData.notes.trim() || undefined,
+        });
+      } else {
+        await collectionsApi.create({
+          CollectionCode: formData.code.trim(),
+          CollectionName: formData.name.trim(),
+          Season: formData.season.trim(),
+          TargetLaunchDate: formData.launchDate,
+          Notes: formData.notes.trim() || undefined,
+        });
       }
-    })();
+
+      await loadCollections();
+      setIsModalOpen(false);
+      setEditingId(null);
+      setFormData(emptyForm);
+      setCollectionFieldErrors({});
+      setCollectionFormError("");
+      setToastState({
+        type: "success",
+        message: pendingCollectionSaveMode === "update" ? "Collection updated successfully." : "Collection created successfully.",
+      });
+    } catch (error) {
+      const validationErrors =
+        typeof error === "object" && error !== null && "validationErrors" in error
+          ? (error as { validationErrors?: Record<string, string[] | string> }).validationErrors
+          : undefined;
+      const mapped = mapCollectionValidationErrors(validationErrors);
+      setCollectionFieldErrors(mapped);
+      const firstValidationMessage = Object.values(mapped).find(Boolean);
+      const message =
+        firstValidationMessage ||
+        (error instanceof Error ? error.message : "Failed to save collection.");
+      setCollectionFormError(message);
+      setToastState({ type: "error", message });
+    } finally {
+      setPendingCollectionSaveMode(null);
+    }
   };
 
   const archiveCollection = (id: number) => {
@@ -1518,6 +1546,7 @@ export default function CollectionsPage() {
   const closeConfirmation = (options?: { reopenProductModal?: boolean }) => {
     const shouldReopenProductModal =
       options?.reopenProductModal ?? Boolean(confirmation.reopenProductModalOnCancel);
+    setPendingCollectionSaveMode(null);
     setConfirmation({
       isOpen: false,
       action: null,
@@ -1568,7 +1597,13 @@ export default function CollectionsPage() {
     void (async () => {
       const action = confirmation.action;
       const productId = confirmation.productId;
+      const shouldSaveCollection = pendingCollectionSaveMode !== null;
       closeConfirmation({ reopenProductModal: false });
+
+      if (shouldSaveCollection) {
+        await saveCollection();
+        return;
+      }
 
       if (action === "archive" && productId) {
         const archived = await archiveProduct(productId);
@@ -1582,14 +1617,14 @@ export default function CollectionsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-white to-slate-50 px-5 py-4 shadow-sm">
         <h1 className="text-2xl font-semibold text-slate-900">Collections</h1>
         <p className="mt-1 text-sm text-slate-500">
           Build and manage seasonal collections with structured metadata and lifecycle controls.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+      <div className="rounded-2xl border border-sky-100/80 bg-gradient-to-r from-sky-50 to-cyan-50 p-4 shadow-sm">
         <p className="text-xs font-bold uppercase tracking-wide text-sky-700">Validation Rule</p>
         <p className="mt-1 text-sm text-sky-900">
           Collection code should be unique and launch metadata is required before submission.
@@ -1597,7 +1632,7 @@ export default function CollectionsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Visible Collections</CardTitle>
           </CardHeader>
@@ -1606,7 +1641,7 @@ export default function CollectionsPage() {
             <p className="mt-1 text-xs text-slate-500">Collections matching current filters.</p>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Target Date Set</CardTitle>
           </CardHeader>
@@ -1617,7 +1652,7 @@ export default function CollectionsPage() {
             <p className="mt-1 text-xs text-slate-500">Collections with target launch date defined.</p>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">With Notes</CardTitle>
           </CardHeader>
@@ -1630,7 +1665,7 @@ export default function CollectionsPage() {
         </Card>
       </div>
 
-      <Card className="rounded-2xl">
+      <Card className="rounded-2xl border-slate-200/80 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">Collection Cards</CardTitle>
           <CardDescription>
@@ -1685,7 +1720,7 @@ export default function CollectionsPage() {
                       openCollectionDetails(item);
                     }
                   }}
-                  className="group flex aspect-square flex-col rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  className="group flex aspect-square flex-col rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/50 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-300"
                 >
                   <div className="mb-4 flex items-start justify-between">
                     <div className="flex items-center gap-2 text-slate-700">
@@ -1790,7 +1825,7 @@ export default function CollectionsPage() {
                 </div>
 
                 <div className="space-y-6 overflow-y-auto p-6">
-                  <div className="rounded-2xl border border-slate-200 p-4">
+                  <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm">
                     <div className="grid gap-4 md:grid-cols-2">
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Collection Name</p>
@@ -1815,7 +1850,7 @@ export default function CollectionsPage() {
                     </div>
                   </div>
 
-                  <Card className="rounded-2xl">
+                  <Card className="rounded-2xl border-slate-200/80 shadow-sm">
                     <CardHeader>
                       <CardTitle className="text-base">Products</CardTitle>
                       <CardDescription>
@@ -2148,7 +2183,7 @@ export default function CollectionsPage() {
             return next;
           });
         }}
-        onSave={saveCollection}
+        onSave={requestSaveCollection}
       />
 
       <ConfirmationModal

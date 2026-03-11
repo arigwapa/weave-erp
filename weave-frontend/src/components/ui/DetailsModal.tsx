@@ -19,6 +19,7 @@ interface DetailsModalProps {
   gridFields: DetailField[];
   children?: React.ReactNode;
   footerActions?: React.ReactNode;
+  hideDefaultCloseButton?: boolean;
   zIndexClass?: string;
 }
 
@@ -31,7 +32,8 @@ const DetailsModal: React.FC<DetailsModalProps> = ({
   gridFields,
   children,
   footerActions,
-  zIndexClass = "z-[60]",
+  hideDefaultCloseButton = false,
+  zIndexClass = "z-[70]",
 }) => {
   if (!isOpen) return null;
 
@@ -82,12 +84,14 @@ const DetailsModal: React.FC<DetailsModalProps> = ({
 
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
           {footerActions}
-          <button
-            onClick={onClose}
-            className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-xl shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all"
-          >
-            Close
-          </button>
+          {!hideDefaultCloseButton && (
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-xl shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all"
+            >
+              Close
+            </button>
+          )}
         </div>
       </div>
     </div>,

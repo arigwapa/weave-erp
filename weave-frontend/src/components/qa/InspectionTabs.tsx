@@ -2,6 +2,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { StatusBadge } from "../ui/StatusBadge";
 import PrimaryButton from "../ui/PrimaryButton";
 import type { QaBatchItem } from "../../lib/api/inspectionApi";
+import { CheckCircle2, Clock3, Eye, LoaderCircle } from "lucide-react";
+import TabBar from "../ui/TabBar";
 
 type TabId = "pending" | "ongoing" | "completed";
 
@@ -12,8 +14,9 @@ type Props = {
   ongoingRows: QaBatchItem[];
   completedRows: QaBatchItem[];
   loading: boolean;
-  onStartInspection: (batchId: number) => void;
+  onStartInspection: (row: QaBatchItem) => void;
   onAddInspection: (row: QaBatchItem) => void;
+  onViewDetails: (row: QaBatchItem) => void;
 };
 
 export function InspectionTabs({
@@ -25,26 +28,18 @@ export function InspectionTabs({
   loading,
   onStartInspection,
   onAddInspection,
+  onViewDetails,
 }: Props) {
+  const tabs = [
+    { id: "pending", label: "Pending", icon: Clock3, count: pendingRows.length },
+    { id: "ongoing", label: "Ongoing", icon: LoaderCircle, count: ongoingRows.length },
+    { id: "completed", label: "Completed", icon: CheckCircle2, count: completedRows.length },
+  ];
+
   return (
     <div>
-      <div className="mb-4 flex flex-wrap gap-2">
-        {[
-          { id: "pending" as const, label: `Pending (${pendingRows.length})` },
-          { id: "ongoing" as const, label: `Ongoing (${ongoingRows.length})` },
-          { id: "completed" as const, label: `Completed (${completedRows.length})` },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => onTabChange(tab.id)}
-            className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
-              activeTab === tab.id ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="mb-4">
+        <TabBar tabs={tabs} activeTab={activeTab} onTabChange={(id) => onTabChange(id as TabId)} />
       </div>
 
       <Table>
@@ -58,6 +53,7 @@ export function InspectionTabs({
               <TableHead>Quantity Produced</TableHead>
               <TableHead>Date Submitted</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Details</TableHead>
               <TableHead>Action</TableHead>
             </TableRow>
           ) : activeTab === "ongoing" ? (
@@ -69,6 +65,7 @@ export function InspectionTabs({
               <TableHead>Inspector</TableHead>
               <TableHead>Started At</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Details</TableHead>
               <TableHead>Action</TableHead>
             </TableRow>
           ) : (
@@ -83,20 +80,21 @@ export function InspectionTabs({
               <TableHead>Defects Found</TableHead>
               <TableHead>Result</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Details</TableHead>
             </TableRow>
           )}
         </TableHeader>
         <TableBody>
           {loading ? (
             <TableRow>
-              <TableCell colSpan={activeTab === "completed" ? 10 : 8} className="py-8 text-center text-sm text-slate-500">
+              <TableCell colSpan={activeTab === "completed" ? 11 : 9} className="py-8 text-center text-sm text-slate-500">
                 Loading inspections...
               </TableCell>
             </TableRow>
           ) : activeTab === "pending" ? (
             pendingRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-8 text-center text-sm text-slate-500">
+                <TableCell colSpan={9} className="py-8 text-center text-sm text-slate-500">
                   No pending inspections.
                 </TableCell>
               </TableRow>
@@ -113,7 +111,17 @@ export function InspectionTabs({
                     <StatusBadge status={row.Status || "For Inspection"} />
                   </TableCell>
                   <TableCell>
-                    <PrimaryButton className="!w-auto !rounded-full !px-4 !py-2 !text-[11px]" onClick={() => onStartInspection(row.BatchBoardID)}>
+                    <button
+                      type="button"
+                      onClick={() => onViewDetails(row)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                      aria-label={`View details for ${row.BatchNumber}`}
+                    >
+                      <Eye size={14} />
+                    </button>
+                  </TableCell>
+                  <TableCell>
+                    <PrimaryButton className="!w-auto !rounded-full !px-4 !py-2 !text-[11px]" onClick={() => onStartInspection(row)}>
                       Start Inspection
                     </PrimaryButton>
                   </TableCell>
@@ -123,7 +131,7 @@ export function InspectionTabs({
           ) : activeTab === "ongoing" ? (
             ongoingRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-8 text-center text-sm text-slate-500">
+                <TableCell colSpan={9} className="py-8 text-center text-sm text-slate-500">
                   No ongoing inspections.
                 </TableCell>
               </TableRow>
@@ -140,6 +148,16 @@ export function InspectionTabs({
                     <StatusBadge status="For Inspection" />
                   </TableCell>
                   <TableCell>
+                    <button
+                      type="button"
+                      onClick={() => onViewDetails(row)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                      aria-label={`View details for ${row.BatchNumber}`}
+                    >
+                      <Eye size={14} />
+                    </button>
+                  </TableCell>
+                  <TableCell>
                     <PrimaryButton className="!w-auto !rounded-full !px-4 !py-2 !text-[11px]" onClick={() => onAddInspection(row)}>
                       Add Inspection
                     </PrimaryButton>
@@ -149,7 +167,7 @@ export function InspectionTabs({
             )
           ) : completedRows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={10} className="py-8 text-center text-sm text-slate-500">
+              <TableCell colSpan={11} className="py-8 text-center text-sm text-slate-500">
                 No completed inspections.
               </TableCell>
             </TableRow>
@@ -169,6 +187,16 @@ export function InspectionTabs({
                 </TableCell>
                 <TableCell>
                   <StatusBadge status="Inspection Finished" />
+                </TableCell>
+                <TableCell>
+                  <button
+                    type="button"
+                    onClick={() => onViewDetails(row)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                    aria-label={`View details for ${row.BatchNumber}`}
+                  >
+                    <Eye size={14} />
+                  </button>
                 </TableCell>
               </TableRow>
             ))

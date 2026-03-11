@@ -23,9 +23,8 @@ namespace weave_erp_backend_api.Services
         {
             var data = await (from u in _context.Users
                               join r in _context.Roles on u.RoleID equals r.RoleID
-                              join b in _context.Branches on u.BranchID equals b.BranchID
                               where u.Username == username && u.IsActive
-                              select new { User = u, RoleName = r.DisplayName, BranchName = b.BranchName })
+                              select new { User = u, RoleName = r.DisplayName, BranchName = string.Empty })
                 .AsNoTracking()
                 .FirstOrDefaultAsync();
 

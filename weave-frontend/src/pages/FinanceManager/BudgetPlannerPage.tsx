@@ -20,6 +20,7 @@ type CollectionBudget = {
   collection: string;
   collectionStatus: string;
   plannerStatus: string;
+  hasSavedPlan: boolean;
   isAdminApproved: boolean;
   adminDecision: string;
   adminDecisionReason: string;
@@ -60,6 +61,7 @@ export default function BudgetPlannerPage() {
     CollectionStatus: string;
     PlannerStatus: string;
     IsAdminApproved: boolean;
+    HasSavedPlan: boolean;
     AdminDecision: string;
     AdminDecisionReason: string;
     TotalBomCost: number;
@@ -78,6 +80,7 @@ export default function BudgetPlannerPage() {
     collection: item.CollectionName,
     collectionStatus: item.CollectionStatus || "",
     plannerStatus: item.PlannerStatus || "Planning Budget",
+    hasSavedPlan: Boolean(item.HasSavedPlan),
     isAdminApproved: Boolean(item.IsAdminApproved),
     adminDecision: item.AdminDecision || "",
     adminDecisionReason: item.AdminDecisionReason || "",
@@ -141,7 +144,7 @@ export default function BudgetPlannerPage() {
     [budgetRows],
   );
   const matrixRows = useMemo(
-    () => budgetRows.filter((item) => item.isAdminApproved),
+    () => budgetRows.filter((item) => item.hasSavedPlan),
     [budgetRows],
   );
   const filteredRows = useMemo(
@@ -264,14 +267,14 @@ export default function BudgetPlannerPage() {
           onClose={() => setToast(null)}
         />
       ) : null}
-      <div>
+      <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-white to-slate-50 px-5 py-4 shadow-sm">
         <h1 className="text-2xl font-semibold text-slate-900">Budget Planner</h1>
         <p className="mt-1 text-sm text-slate-500">
           Set budget caps, contingency, readiness checks, and risk flags before admin submission.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+      <div className="rounded-2xl border border-sky-100/80 bg-gradient-to-r from-sky-50 to-cyan-50 p-4 shadow-sm">
         <p className="text-xs font-bold uppercase tracking-wide text-sky-700">Validation Rule</p>
         <p className="mt-1 text-sm text-sky-900">
           Budget plan must be maintained per collection and include contingency before admin submission.
@@ -279,7 +282,7 @@ export default function BudgetPlannerPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Collections Planned</CardTitle>
           </CardHeader>
@@ -288,7 +291,7 @@ export default function BudgetPlannerPage() {
             <p className="mt-1 text-xs text-slate-500">Active collection budget plans.</p>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Total Budget Cap</CardTitle>
           </CardHeader>
@@ -297,7 +300,7 @@ export default function BudgetPlannerPage() {
             <p className="mt-1 text-xs text-slate-500">Combined cap for selected season scope.</p>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Total Forecast</CardTitle>
           </CardHeader>
@@ -308,7 +311,7 @@ export default function BudgetPlannerPage() {
         </Card>
       </div>
 
-      <Card className="rounded-2xl">
+      <Card className="rounded-2xl border-slate-200/80 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">Collection Picker</CardTitle>
           <CardDescription>
@@ -338,7 +341,7 @@ export default function BudgetPlannerPage() {
                 <TableHead>Total BOM Cost</TableHead>
                 <TableHead>Budget Cap</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableHead className="text-left">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -355,8 +358,8 @@ export default function BudgetPlannerPage() {
                   <TableCell>PHP {row.totalBomCost.toLocaleString()}</TableCell>
                   <TableCell>PHP {row.budgetCap.toLocaleString()}</TableCell>
                   <TableCell><StatusBadge status={row.plannerStatus} /></TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
+                  <TableCell className="text-left">
+                    <div className="flex justify-start gap-2">
                       <SecondaryButton
                         className="!rounded-full !px-4 !py-2 !text-xs"
                         onClick={(event) => {
@@ -449,7 +452,7 @@ export default function BudgetPlannerPage() {
         </div>
       </DetailsModal>
 
-      <Card className="rounded-2xl">
+      <Card className="rounded-2xl border-slate-200/80 shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">Collection Budget Matrix</CardTitle>
           <CardDescription>Per-collection cap, forecast, contingency, and readiness state.</CardDescription>
@@ -484,13 +487,13 @@ export default function BudgetPlannerPage() {
                     />
                   </TableCell>
                   <TableCell>{row.contingency}%</TableCell>
-                  <TableCell><StatusBadge status="Admin Approved" /></TableCell>
+                  <TableCell><StatusBadge status={row.plannerStatus || "For Admin Approval"} /></TableCell>
                 </TableRow>
               ))}
               {matrixRows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-sm text-slate-500">
-                    No admin-approved collection budgets yet.
+                    No saved collection budgets yet.
                   </TableCell>
                 </TableRow>
               )}
@@ -500,7 +503,7 @@ export default function BudgetPlannerPage() {
       </Card>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader>
             <CardTitle className="text-base">Approval Readiness Indicators</CardTitle>
             <CardDescription>
@@ -521,7 +524,7 @@ export default function BudgetPlannerPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl border-slate-200/80 shadow-sm">
           <CardHeader>
             <CardTitle className="text-base">Risk Flags</CardTitle>
             <CardDescription>Highlight budget shortfall and dependency-sensitive materials.</CardDescription>

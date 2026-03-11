@@ -40,5 +40,56 @@ namespace weave_erp_backend_api.Services
 
             return notification;
         }
+
+        public async Task<int> NotifyAdminsAsync(string message, string type = "Alert", int? createdByUserId = null)
+        {
+            var adminRoleIds = await _context.Roles
+                .AsNoTracking()
+                .Where(role =>
+                    role.DisplayName.ToLower() == "admin" ||
+                    role.DisplayName.ToLower() == "branchadmin" ||
+                    role.DisplayName.ToLower() == "superadmin")
+                .Select(role => role.RoleID)
+                .ToListAsync();
+
+            if (adminRoleIds.Count == 0)
+            {
+                return 0;
+            }
+
+            var adminUsers = await _context.Users
+                .AsNoTracking()
+                .Where(user => user.IsActive && adminRoleIds.Contains(user.RoleID))
+                .Select(user => user.UserID)
+                .Distinct()
+                .ToListAsync();
+
+            if (adminUsers.Count == 0)
+            {
+                return 0;
+            }
+
+            var now = DateTime.UtcNow;
+            var notifications = adminUsers.Select(userId => new Notification
+            {
+                UserID = userId,
+                Type = string.IsNullOrWhiteSpace(type) ? "Alert" : type.Trim(),
+                Message = message,
+                IsRead = false,
+                CreatedByUserID = createdByUserId,
+                CreatedAt = now
+            }).ToList();
+
+            _context.Notifications.AddRange(notifications);
+            await _context.SaveChangesAsync();
+
+            foreach (var notification in notifications)
+            {
+                await _hubContext.Clients.Group($"user-{notification.UserID!.Value}")
+                    .SendAsync("notify", notification);
+            }
+
+            return notifications.Count;
+        }
     }
 }

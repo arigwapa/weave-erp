@@ -4,9 +4,6 @@ namespace weave_erp_backend_api.Dtos
 {
     public class UserDto
     {
-        [Range(1, int.MaxValue, ErrorMessage = "Branch ID must be greater than 0.")]
-        public int BranchID { get; set; }
-
         [Range(1, int.MaxValue, ErrorMessage = "Role ID must be greater than 0.")]
         public int RoleID { get; set; }
 

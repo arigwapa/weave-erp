@@ -1,11 +1,11 @@
 // Toast.tsx - success/error notification that auto-dismisses after 4s
 
 import React, { useEffect } from "react";
-import { CheckCircle2, XCircle, X } from "lucide-react";
+import { AlertTriangle, Check, CircleX, X } from "lucide-react";
 
 interface ToastProps {
   message: string;
-  type: "success" | "error";
+  type: "success" | "warning" | "error";
   onClose: () => void;
 }
 
@@ -19,45 +19,56 @@ const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
 
   const styles = {
     success: {
-      icon: <CheckCircle2 className="text-emerald-600" size={16} />,
-      tone: "from-emerald-500/15 to-emerald-500/0",
-      iconWrap: "bg-emerald-50 text-emerald-600 ring-emerald-100",
-      label: "text-emerald-700",
-      bar: "bg-emerald-500",
+      title: "Success!",
+      icon: <Check className="text-emerald-500" size={16} strokeWidth={3} />,
+      container: "border-emerald-200 bg-emerald-50/90",
+      iconWrap: "bg-emerald-200/70",
+      titleColor: "text-emerald-900",
+      messageColor: "text-emerald-800",
+      closeColor: "text-emerald-400 hover:text-emerald-600",
+    },
+    warning: {
+      title: "Warning!",
+      icon: <AlertTriangle className="text-amber-500" size={16} strokeWidth={2.6} />,
+      container: "border-amber-200 bg-amber-50/90",
+      iconWrap: "bg-amber-200/60",
+      titleColor: "text-amber-900",
+      messageColor: "text-amber-800",
+      closeColor: "text-amber-400 hover:text-amber-600",
     },
     error: {
-      icon: <XCircle className="text-rose-600" size={16} />,
-      tone: "from-rose-500/15 to-rose-500/0",
-      iconWrap: "bg-rose-50 text-rose-600 ring-rose-100",
-      label: "text-rose-700",
-      bar: "bg-rose-500",
+      title: "Error!",
+      icon: <CircleX className="text-rose-500" size={16} strokeWidth={2.6} />,
+      container: "border-rose-200 bg-rose-50/90",
+      iconWrap: "bg-rose-200/60",
+      titleColor: "text-rose-900",
+      messageColor: "text-rose-800",
+      closeColor: "text-rose-400 hover:text-rose-600",
     },
   };
 
   const style = styles[type];
 
   return (
-    <div className="fixed top-5 right-5 z-[100] flex flex-col gap-2 animate-in slide-in-from-right-8 fade-in duration-300">
+    <div className="pointer-events-none fixed right-5 top-5 z-[130] flex flex-col gap-3 animate-in slide-in-from-right-8 fade-in duration-300">
       <div
         role="status"
         aria-live="polite"
-        className="relative w-[420px] max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_12px_34px_-16px_rgba(15,23,42,0.5)] backdrop-blur supports-[backdrop-filter]:bg-white/85"
+        className={`pointer-events-auto relative w-[380px] max-w-[calc(100vw-2.5rem)] rounded-2xl border px-4 py-3.5 shadow-[0_10px_24px_-14px_rgba(15,23,42,0.35)] backdrop-blur ${style.container}`}
       >
-        <div className={`pointer-events-none absolute inset-0 bg-gradient-to-r ${style.tone}`} />
-
-        <div className="relative flex items-start gap-3 px-3.5 py-3.5 pr-10">
+        <div className="relative flex items-start gap-3 pr-8">
           <div
-            className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full ring-1 ${style.iconWrap}`}
+            className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full ${style.iconWrap}`}
             aria-hidden="true"
           >
             {style.icon}
           </div>
 
           <div className="min-w-0">
-            <p className={`text-[12px] font-semibold leading-4 ${style.label}`}>
-              {type === "success" ? "Success" : "Error"}
+            <p className={`text-[12px] font-semibold leading-4 ${style.titleColor}`}>
+              {style.title}
             </p>
-            <p className="mt-1 text-[12px] leading-[1.35] text-slate-600 break-words">
+            <p className={`mt-0.5 text-[12px] font-normal leading-[1.35] break-words ${style.messageColor}`}>
               {message}
             </p>
           </div>
@@ -67,14 +78,10 @@ const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
           onClick={onClose}
           aria-label="Close notification"
           title="Close notification"
-          className="absolute right-2.5 top-2.5 rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+          className={`absolute right-2.5 top-2.5 rounded-lg p-1 transition-colors ${style.closeColor}`}
         >
-          <X size={14} />
+          <X size={16} />
         </button>
-
-        <div
-          className={`absolute bottom-0 left-0 h-[2px] w-full origin-left opacity-60 ${style.bar} animate-[shrink_4s_linear_forwards]`}
-        />
       </div>
     </div>
   );
